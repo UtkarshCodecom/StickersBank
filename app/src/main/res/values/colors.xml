@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="purple_200">#FFBB86FC</color>
+    <color name="purple_500">#FF6200EE</color>
+    <color name="purple_700">#FF3700B3</color>
+    <color name="teal_200">#FF03DAC5</color>
+    <color name="teal_700">#FF018786</color>
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+    <color name="white_50">#80FFFFFF</color>
+
+    <color name="gray">#CDCDCD</color>
+    <color name="app_back">#F9FCFF</color>
+    <color name="divider">#DEE4ED</color>
+    <color name="gray_font">#7D8FB3</color>
+    <color name="transparent">#00FFFFFF</color>
+    <color name="denim">#0F1626</color>
+    <color name="meri_gold">#FCAE1E</color>
+
+    <color name="ic_color_categorybackground">#FCAE1E</color>
+    <color name="ic_color_headerbackground">#80FFFFFF</color>
+    <color name="materialcolorpicker__black">#000000</color>
+    <color name="materialcolorpicker__white">#ffffff</color>
+    <color name="materialcolorpicker__red">#f44336</color>
+    <color name="materialcolorpicker__green">#4caf50</color>
+    <color name="materialcolorpicker__blue">#2196f3</color>
+    <color name="materialcolorpicker__grey">#b3b3b3</color>
+    <color name="materialcolorpicker__lightgrey">#d9d9d9</color>
+    <color name="materialcolorpicker__dribble">#ea4c89</color>
+    <color name="materialcolorpicker__dribbledark">#c32361</color>
+    <color name="materialcolorpicker__dialogcolor">#009688</color>
+    <color name="hint_foreground_material_light">#00000000</color>
+    <color name="hint_foreground_material_dark">#00000000</color>
+    <!--    <color name="denim">#FCAE1E</color>-->
+    <!--    <color name="meri_gold">#0F1626</color>-->
+
+    <color name="white_translucent">#AAFFFFFF</color>
+    <color name="black_translucent">#B0000000</color>
+
+    <color name="border">@color/white_translucent</color>
+    <color name="guideline">@color/white_translucent</color>
+    <color name="corner">@android:color/white</color>
+    <color name="surrounding_area">@color/black_translucent</color>
+    <color name="lighter_gray">#eeeeee</color>
+    <color name="txt_color">#3b3b3b</color>
+    <color name="colorTxt">#212121</color>
+</resources>

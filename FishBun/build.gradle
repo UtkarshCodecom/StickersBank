@@ -1,0 +1,88 @@
+buildscript {
+    repositories {
+        mavenCentral()
+        maven {
+            url "https://plugins.gradle.org/m2/"
+        }
+        maven { url 'https://jitpack.io' }
+    }
+
+    dependencies {
+        classpath 'com.android.tools.build:gradle:7.2.2'
+        classpath 'com.github.dcendents:android-maven-gradle-plugin:2.1'
+        classpath 'co.riiid:gradle-github-plugin:0.4.2'
+    }
+}
+
+plugins {
+    id 'com.android.library'
+    id 'org.jetbrains.kotlin.android'
+    id 'com.hiya.jacoco-android'
+}
+
+jacoco {
+    toolVersion = "0.8.7"
+}
+
+
+android {
+    namespace 'com.sangcomz.fishbun'
+    compileSdk 33
+
+    defaultConfig {
+        minSdk 24
+        targetSdk 33
+        consumerProguardFile('proguard-rules.pro')
+        multiDexEnabled true
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    buildTypes {
+        debug {
+            testCoverageEnabled true
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+
+    kotlinOptions {
+        jvmTarget = JavaVersion.VERSION_1_8.toString()
+    }
+
+    lintOptions {
+        abortOnError false
+    }
+}
+
+//apply plugin: "io.github.sabujak-sabujak"
+
+dependencies {
+    implementation 'androidx.core:core-ktx:1.7.0'
+    //implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.7.10"
+    implementation "androidx.appcompat:appcompat:1.5.1"
+
+    implementation "androidx.constraintlayout:constraintlayout:2.1.4"
+    implementation "com.google.android.material:material:1.7.0"
+
+    androidTestImplementation 'org.mockito:mockito-android:3.0.0'
+
+    compileOnly "io.coil-kt:coil:0.11.0"
+    compileOnly "com.github.bumptech.glide:glide:4.13.0"
+}
+
+tasks.withType(Javadoc).all {
+    enabled = false
+}
+
+configurations.all {
+    resolutionStrategy {
+        eachDependency { details ->
+            if ('org.jacoco' == details.requested.group) {
+                details.useVersion "0.8.7"
+            }
+        }
+    }
+}

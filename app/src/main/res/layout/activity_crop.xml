@@ -1,0 +1,217 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/denim"
+    android:orientation="vertical">
+
+    <com.stickers.bank.ui.videocrop.cropview.window.CropVideoView
+        android:id="@+id/cropVideoView"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        app:aspectRatioX="1"
+        app:aspectRatioY="1"
+        app:fixAspectRatio="true"
+        app:guidelines="off"
+        app:layout_constraintBottom_toTopOf="@id/clBottomMenu"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <com.stickers.bank.ui.videocrop.view.ProgressView
+        android:id="@+id/pbCropProgress"
+        android:layout_width="100dp"
+        android:layout_height="100dp"
+        android:visibility="gone"
+        app:layout_constraintBottom_toBottomOf="@id/cropVideoView"
+        app:layout_constraintEnd_toEndOf="@id/cropVideoView"
+        app:layout_constraintStart_toStartOf="@id/cropVideoView"
+        app:layout_constraintTop_toTopOf="@id/cropVideoView" />
+
+    <TextView
+        android:id="@+id/tvCropProgress"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textColor="@android:color/black"
+        android:textSize="20sp"
+        android:visibility="gone"
+        app:layout_constraintBottom_toBottomOf="@id/cropVideoView"
+        app:layout_constraintEnd_toEndOf="@id/cropVideoView"
+        app:layout_constraintStart_toStartOf="@id/cropVideoView"
+        app:layout_constraintTop_toTopOf="@id/cropVideoView"
+        tools:text="75%" />
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/clBottomMenu"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:background="@drawable/bg_stroke"
+        android:clipChildren="false"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent">
+
+        <TextView
+            android:id="@+id/txt_total"
+            style="@style/TxtRgStyle22"
+            android:layout_marginTop="@dimen/_7sdp"
+            android:layout_marginBottom="@dimen/_7sdp"
+            android:text="Selected 10"
+            android:textColor="@color/white"
+            android:textSize="14sp"
+            app:layout_constraintBottom_toTopOf="@id/rl_video_controls"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
+
+        <RelativeLayout
+            android:id="@+id/rl_video_controls"
+            style="@style/LView"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center_vertical"
+            app:layout_constraintBottom_toTopOf="@id/txt_start_duration"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            tools:ignore="ContentDescription,UnusedAttribute">
+
+            <com.crystal.crystalrangeseekbar.widgets.CrystalRangeSeekbar
+                android:id="@+id/range_seek_bar"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_alignParentTop="true"
+                android:layout_marginStart="20dp"
+                android:layout_marginEnd="20dp"
+                android:elevation="4dp"
+                android:padding="7dp"
+                app:bar_color="@android:color/transparent"
+                app:bar_highlight_color="@android:color/transparent"
+                app:data_type="_integer"
+                app:left_thumb_image="@drawable/ic_min_seek"
+                app:right_thumb_image="@drawable/ic_max_seek" />
+
+            <LinearLayout
+                android:id="@+id/view_image"
+                style="@style/LView"
+                android:layout_alignParentTop="true"
+                android:layout_marginStart="25dp"
+                android:layout_marginEnd="25dp"
+                android:background="@color/black">
+
+                <ImageView
+                    android:id="@+id/image_one"
+                    style="@style/ImageTrim"
+                    android:paddingTop="10dp"
+                    android:paddingBottom="10dp" />
+
+                <ImageView
+                    android:id="@+id/image_two"
+                    style="@style/ImageTrim"
+                    android:paddingTop="10dp"
+                    android:paddingBottom="10dp" />
+
+                <ImageView
+                    android:id="@+id/image_three"
+                    style="@style/ImageTrim"
+                    android:paddingTop="10dp"
+                    android:paddingBottom="10dp" />
+
+                <ImageView
+                    android:id="@+id/image_four"
+                    style="@style/ImageTrim"
+                    android:paddingTop="10dp"
+                    android:paddingBottom="10dp" />
+
+                <ImageView
+                    android:id="@+id/image_five"
+                    style="@style/ImageTrim"
+                    android:paddingTop="10dp"
+                    android:paddingBottom="10dp" />
+
+                <ImageView
+                    android:id="@+id/image_six"
+                    style="@style/ImageTrim"
+                    android:paddingTop="10dp"
+                    android:paddingBottom="10dp" />
+
+                <ImageView
+                    android:id="@+id/image_seven"
+                    style="@style/ImageTrim"
+                    android:paddingTop="10dp"
+                    android:paddingBottom="10dp" />
+
+                <ImageView
+                    android:id="@+id/image_eight"
+                    style="@style/ImageTrim"
+                    android:paddingTop="10dp"
+                    android:paddingBottom="10dp" />
+            </LinearLayout>
+
+        </RelativeLayout>
+
+        <TextView
+            android:id="@+id/txt_start_duration"
+            style="@style/TxtRgStyle22"
+            android:layout_marginStart="25dp"
+            android:layout_marginBottom="@dimen/_5sdp"
+            android:textColor="@color/white"
+            android:textSize="14sp"
+            app:layout_constraintBottom_toTopOf="@id/divider"
+            app:layout_constraintStart_toStartOf="@+id/rl_video_controls"
+            tools:text="00" />
+
+        <TextView
+            android:id="@+id/txt_end_duration"
+            style="@style/TxtRgStyle22"
+            android:layout_marginEnd="25dip"
+            android:layout_marginBottom="@dimen/_5sdp"
+            android:textColor="@color/white"
+            android:textSize="14sp"
+            app:layout_constraintBottom_toTopOf="@id/divider"
+            app:layout_constraintEnd_toEndOf="@+id/rl_video_controls"
+            tools:text="00" />
+
+        <View
+            android:id="@+id/divider"
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="@color/lighter_gray"
+            app:layout_constraintBottom_toTopOf="@+id/ivPlay"
+            app:layout_constraintStart_toStartOf="parent" />
+
+        <androidx.constraintlayout.widget.Guideline
+            android:id="@+id/guideline"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            app:layout_constraintGuide_percent="0.5" />
+
+        <androidx.appcompat.widget.AppCompatImageView
+            android:id="@+id/ivPlay"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:background="?selectableItemBackground"
+            android:padding="10dp"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toStartOf="@id/guideline"
+            app:layout_constraintStart_toStartOf="parent"
+            app:srcCompat="@drawable/ic_play"
+            app:tint="@color/white" />
+
+        <androidx.appcompat.widget.AppCompatImageView
+            android:id="@+id/ivDone"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:background="?selectableItemBackground"
+            android:padding="10dp"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toEndOf="@id/guideline"
+            app:srcCompat="@drawable/ic_check"
+            app:tint="@color/white" />
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+</androidx.constraintlayout.widget.ConstraintLayout>

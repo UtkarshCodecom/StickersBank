@@ -1,0 +1,81 @@
+<resources>
+    <string name="app_name" translatable="false">Stickers Bank</string>
+    <string name="default_notification_channel_id" translatable="false">stickers_bank</string>
+
+    <string name="ok">Ok</string>
+    <string name="yes">Yes</string>
+    <string name="cancel">Cancel</string>
+    <string name="network_alert">We\'re having trouble reaching the network. Check your connection or try again in a few minutes.</string>
+    <string name="no_internet">No Internet</string>
+    <string name="featured">Featured</string>
+    <string name="new_arrival">New Arrival</string>
+    <string name="bank">Bank</string>
+    <string name="Create">Create</string>
+    <string name="about_us">About us</string>
+    <string name="faq_s">Faq\'s</string>
+    <string name="contact_us">Contact us</string>
+    <string name="create_sticker">Create Custom Sticker</string>
+    <string name="create_animated">Create Animated Sticker</string>
+    <string name="custom_sticker">Custom Sticker</string>
+    <string name="animated_sticker">Animated Sticker</string>
+    <string name="whatsapp">WhatsApp</string>
+    <string name="add_to_wp">Add to WhatsApp</string>
+
+    <string name="error_adding_sticker_pack">Could not add this sticker pack. Please install the latest version of WhatsApp before adding sticker pack</string>
+    <string name="add_pack_fail_prompt_update_whatsapp">Sticker pack not added. If you\'d like to add it, make sure you update to the latest version of WhatsApp.</string>
+    <string name="title_validation_error">Error with the pack</string>
+    <string name="add_pack_fail_prompt_update_play_link">Update</string>
+    <string name="cannot_find_play_store">Google Play is not installed on the device.</string>
+    <string name="add_to_whatsapp">Add to WhatsApp</string>
+    <string name="exit">Exit</string>
+    <string name="new_folder">Add Folder</string>
+    <!--    <string name="is_animated">Is Animated</string>-->
+    <string name="is_animated">TICK BOX IF ITS ANIMATED</string>
+    <string name="plz_grant_storage_permission" translatable="false">Please grant the storage permission.</string>
+    <string name="crop_as_circle">Crop Image as \n Cricle</string>
+    <string name="crop_as_rec">Crop image as \n Rectangle</string>
+    <string name="no_crop">Image Editor \n &amp; Croping</string>
+    <string name="saving_image">save...</string>
+    <string name="save_error">Save error!</string>
+    <string name="save">Save</string>
+    <string name="apply">Apply</string>
+    <string name="no_choose">please choose a image for edit</string>
+    <string name="input_hint">input text ...</string>
+    <string name="auto_newline">AutoNewline</string>
+    <string name="materialcolorpicker__errHex">Hex Code Format incorrect</string>
+
+    <string-array name="fonts">
+        <item>font_1.ttf</item>
+        <item>font_2.ttf</item>
+        <item>font_3.ttf</item>
+        <item>font_4.ttf</item>
+        <item>font_5.ttf</item>
+        <item>font_6.ttf</item>
+        <item>font_7.ttf</item>
+        <item>font_8.ttf</item>
+        <item>font_9.ttf</item>
+        <item>font_10.ttf</item>
+    </string-array>
+
+    <string name="exit_without_save">The edited image is not saved. Do you want to exit? </string>
+    <string name="confirm">confirm</string>
+    <string name="materialcolorpicker__btnSelectColor">Select</string>
+    <string name="more">More</string>
+
+    <string name="name_short">The pack name very short .</string>
+    <string name="publisher_short">The publisher name very short</string>
+    <string name="tray_image_required">Please select the pack Icon</string>
+    <string name="sticker_number_required">You should select more then 3 sticers</string>
+    <string name="sticker_number_required_min">You should select less then 30 sticers</string>
+    <string name="label_select_video">Select Video</string>
+    <string name="cannot_retrieve_selected_video">Cannot retrieve selected video</string>
+
+    <string name="default_time">00:00</string>
+    <string name="custom">Custom</string>
+    <string name="square">Square</string>
+    <string name="portrait">Portrait</string>
+    <string name="landscape">Landscape</string>
+    <string name="_4_3">4:3</string>
+    <string name="_16_9">16:9</string>
+
+</resources>

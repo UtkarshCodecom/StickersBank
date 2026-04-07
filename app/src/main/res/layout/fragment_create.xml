@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    tools:context=".ui.fragments.BankFolderFragment">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_custom_sticker"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginHorizontal="@dimen/_16sdp"
+            android:layout_marginTop="@dimen/_12sdp"
+            android:fontFamily="@font/roboto_regular"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:text="Create custom sticker"
+            android:textAllCaps="false"
+            android:textColor="@color/meri_gold"
+            android:textSize="@dimen/_12sdp"
+            app:backgroundTint="@color/denim"
+            app:cornerRadius="@dimen/_7sdp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_animated_sticker"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginHorizontal="@dimen/_16sdp"
+            android:layout_marginTop="@dimen/_12sdp"
+            android:fontFamily="@font/roboto_regular"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:text="Create animated sticker"
+            android:textAllCaps="false"
+            android:textColor="@color/meri_gold"
+            android:textSize="@dimen/_12sdp"
+            app:backgroundTint="@color/denim"
+            app:cornerRadius="@dimen/_7sdp"
+            app:layout_constraintTop_toTopOf="parent" />
+
+    </LinearLayout>
+
+</layout>

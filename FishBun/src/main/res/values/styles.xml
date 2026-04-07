@@ -1,0 +1,12 @@
+<resources>
+
+    <style name="AppTheme.AppBarOverlay" parent="ThemeOverlay.MaterialComponents.Dark.ActionBar" />
+
+    <style name="AppTheme.PopupOverlay" parent="ThemeOverlay.MaterialComponents.Light" />
+
+    <style name="FishBunTheme" parent="Theme.MaterialComponents.Light.NoActionBar" />
+
+    <style name="DetailViewTheme" parent="FishBunTheme">
+        <item name="colorControlHighlight">@android:color/white</item>
+    </style>
+</resources>

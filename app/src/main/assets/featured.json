@@ -1,0 +1,32 @@
+{
+  "data": [
+    {
+      "id": 1,
+      "name": "Viral"
+    },
+    {
+      "id": 2,
+      "name": "Cartoon"
+    },
+    {
+      "id": 3,
+      "name": "Telugu"
+    },
+    {
+      "id": 4,
+      "name": "Hindi"
+    },
+    {
+      "id": 5,
+      "name": "Sports"
+    },
+    {
+      "id": 6,
+      "name": "Hindi Bank"
+    },
+    {
+      "id": 7,
+      "name": "English"
+    }
+  ]
+}

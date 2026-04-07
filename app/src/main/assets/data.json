@@ -1,0 +1,63 @@
+{
+  "data": [
+    {
+      "id": 1,
+      "cat_name": "Viral",
+      "s_list": [
+        {
+          "lang": "Eng",
+          "sub_cat": [
+            {
+              "sub_cat_id": 1,
+              "sub_cat_name": "Sticker",
+              "sticker": [
+                {
+                  "s_id": 1,
+                  "name": "str_1",
+                  "path": ""
+                },
+                {
+                  "s_id": 2,
+                  "name": "str_2",
+                  "path": ""
+                }
+              ]
+            },
+            {
+              "sub_cat_id": 2,
+              "sub_cat_name": "GIF",
+              "sticker": [
+                {
+                  "s_id": 1,
+                  "name": "str_1",
+                  "path": ""
+                },
+                {
+                  "s_id": 2,
+                  "name": "str_2",
+                  "path": ""
+                }
+              ]
+            },
+            {
+              "sub_cat_id": 3,
+              "sub_cat_name": "Reactions",
+              "sticker": [
+                {
+                  "s_id": 1,
+                  "name": "str_1",
+                  "path": ""
+                },
+                {
+                  "s_id": 2,
+                  "name": "str_2",
+                  "path": ""
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

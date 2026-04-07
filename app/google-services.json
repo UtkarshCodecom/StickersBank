@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "817030613840",
+    "project_id": "stickersbank-90dc9",
+    "storage_bucket": "stickersbank-90dc9.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:817030613840:android:cb4b642a9aa01dd5a4fa55",
+        "android_client_info": {
+          "package_name": "com.stickers.bank"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "817030613840-h02dd1b588tjfrhe81odttj63gdntg4o.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.stickers.bank",
+            "certificate_hash": "ed924a49b95594e126fda9905bcee326df9cffd2"
+          }
+        },
+        {
+          "client_id": "817030613840-cl9hn67covpuki560i0542u2dkvld6ab.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD_sfHWasI9P5HvKvWO0JVx8L3-nX2W1X4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "817030613840-cl9hn67covpuki560i0542u2dkvld6ab.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

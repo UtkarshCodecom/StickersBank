@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    tools:context=".ui.activity.FeaturedSubActivity">
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@drawable/ic_sticker_splash">
+
+        <include
+            android:id="@+id/header"
+            layout="@layout/layout_header" />
+
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/mcv_tabs"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginHorizontal="@dimen/_16sdp"
+            app:cardCornerRadius="@dimen/_7sdp"
+            app:layout_constraintTop_toBottomOf="@+id/header"
+            app:strokeColor="@color/teal_200"
+            app:strokeWidth="1dp">
+
+            <com.google.android.material.tabs.TabLayout
+                android:id="@+id/tab_layout"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginVertical="@dimen/_2sdp"
+                android:background="@color/app_back"
+                app:layout_constraintTop_toBottomOf="@+id/cl_header"
+                app:tabIndicator="@drawable/ic_dot"
+                app:tabIndicatorColor="@color/meri_gold"
+                app:tabMode="scrollable"
+                app:tabSelectedTextColor="@color/meri_gold"
+                app:tabTextColor="@color/black" />
+
+        </com.google.android.material.card.MaterialCardView>
+
+        <androidx.viewpager2.widget.ViewPager2
+            android:id="@+id/pagerDetails"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/mcv_tabs" />
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+</layout>

@@ -1,0 +1,211 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    tools:context=".ui.activity.ContactUsActivity">
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@drawable/ic_sticker_splash">
+
+        <include
+            android:id="@+id/header"
+            layout="@layout/layout_header" />
+
+        <androidx.core.widget.NestedScrollView
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:fillViewport="true"
+            app:layout_constraintBottom_toTopOf="@id/btn_add_wa"
+            app:layout_constraintTop_toBottomOf="@+id/header">
+
+            <androidx.constraintlayout.widget.ConstraintLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:layout_marginHorizontal="14dip">
+
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/mcv_add_tray"
+                    android:layout_width="@dimen/_80sdp"
+                    android:layout_height="@dimen/_80sdp"
+                    app:cardBackgroundColor="@color/transparent"
+                    app:cardCornerRadius="@dimen/_7sdp"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toTopOf="parent"
+                    app:strokeColor="@color/white"
+                    app:strokeWidth="1dip">
+
+                    <androidx.appcompat.widget.AppCompatImageView
+                        android:id="@+id/iv_tray"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        app:srcCompat="@drawable/ic_add_tray" />
+
+                </com.google.android.material.card.MaterialCardView>
+
+                <EditText
+                    android:id="@+id/edt_pack_name"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="10dip"
+                    android:background="@drawable/back_edt"
+                    android:fontFamily="@font/roboto_regular"
+                    android:hint="Enter Pack Name"
+                    android:padding="@dimen/_8sdp"
+                    android:singleLine="true"
+                    android:textColor="@color/white"
+                    android:textColorHint="@color/gray"
+                    android:textSize="@dimen/_12sdp"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toEndOf="@+id/mcv_add_tray"
+                    app:layout_constraintTop_toTopOf="@+id/mcv_add_tray" />
+
+                <EditText
+                    android:id="@+id/edt_publisher"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="10dip"
+                    android:layout_marginEnd="5dp"
+                    android:background="@drawable/back_edt"
+                    android:fontFamily="@font/roboto_regular"
+                    android:hint="Enter Publisher Name"
+                    android:padding="@dimen/_8sdp"
+                    android:singleLine="true"
+                    android:textColor="@color/white"
+                    android:textColorHint="@color/gray"
+                    android:textSize="@dimen/_12sdp"
+                    app:layout_constraintBottom_toBottomOf="@+id/mcv_add_tray"
+                    app:layout_constraintEnd_toStartOf="@+id/btn_expand"
+                    app:layout_constraintStart_toEndOf="@+id/mcv_add_tray" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_expand"
+                    style="@style/Widget.MaterialComponents.Button.OutlinedButton.Icon"
+                    android:layout_width="40dp"
+                    android:layout_height="0dp"
+                    android:insetLeft="0dp"
+                    android:insetTop="0dp"
+                    android:insetRight="0dp"
+                    android:insetBottom="0dp"
+                    android:padding="0dp"
+                    app:icon="@drawable/ic_expand_more"
+                    app:iconGravity="textStart"
+                    app:iconPadding="0dp"
+                    app:iconSize="24dp"
+                    app:layout_constraintBottom_toBottomOf="@+id/edt_publisher"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintTop_toTopOf="@+id/edt_publisher"
+                    app:strokeColor="@color/white"
+                    app:strokeWidth="1dp" />
+
+                <LinearLayout
+                    android:id="@+id/ll_other_data"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/_10sdp"
+                    android:orientation="vertical"
+                    android:visibility="gone"
+                    app:layout_constraintTop_toBottomOf="@+id/edt_publisher">
+
+                    <EditText
+                        android:id="@+id/edt_email"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:background="@drawable/back_edt"
+                        android:fontFamily="@font/roboto_regular"
+                        android:hint="Enter Publisher Email"
+                        android:inputType="textEmailAddress"
+                        android:padding="@dimen/_8sdp"
+                        android:singleLine="true"
+                        android:textColor="@color/white"
+                        android:textColorHint="@color/gray"
+                        android:textSize="@dimen/_12sdp"
+                        app:layout_constraintBottom_toBottomOf="@+id/mcv_add_tray"
+                        app:layout_constraintEnd_toStartOf="@+id/btn_expand"
+                        app:layout_constraintStart_toEndOf="@+id/mcv_add_tray" />
+
+                    <EditText
+                        android:id="@+id/edt_website"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="@dimen/_10sdp"
+                        android:background="@drawable/back_edt"
+                        android:fontFamily="@font/roboto_regular"
+                        android:hint="Enter Publisher Website"
+                        android:inputType="textEmailAddress"
+                        android:padding="@dimen/_8sdp"
+                        android:singleLine="true"
+                        android:textColor="@color/white"
+                        android:textColorHint="@color/gray"
+                        android:textSize="@dimen/_12sdp"
+                        app:layout_constraintBottom_toBottomOf="@+id/mcv_add_tray"
+                        app:layout_constraintEnd_toStartOf="@+id/btn_expand"
+                        app:layout_constraintStart_toEndOf="@+id/mcv_add_tray" />
+
+                </LinearLayout>
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_add_sticker"
+                    style="@style/Widget.MaterialComponents.Button.TextButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/_10sdp"
+                    android:fontFamily="@font/roboto_bold"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp"
+                    android:text="Add new Sticker"
+                    android:textAllCaps="true"
+                    android:textColor="@color/meri_gold"
+                    android:textSize="@dimen/_12sdp"
+                    android:textStyle="bold"
+                    app:cornerRadius="7dp"
+                    app:elevation="0dp"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@+id/ll_other_data"
+                    app:strokeColor="@color/white"
+                    app:strokeWidth="1dp" />
+
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/rv_stickers"
+                    android:layout_width="match_parent"
+                    android:layout_height="0dp"
+                    app:layout_constraintBottom_toBottomOf="parent"
+                    app:layout_constraintTop_toBottomOf="@+id/btn_add_sticker" />
+
+            </androidx.constraintlayout.widget.ConstraintLayout>
+
+        </androidx.core.widget.NestedScrollView>
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_add_wa"
+            style="@style/Widget.MaterialComponents.Button.TextButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:backgroundTint="@color/meri_gold"
+            android:fontFamily="@font/roboto_bold"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:text="@string/add_to_wp"
+            android:textAllCaps="true"
+            android:textColor="@color/denim"
+            android:textSize="@dimen/_12sdp"
+            android:textStyle="bold"
+            app:cornerRadius="0dp"
+            app:elevation="0dp"
+            app:layout_constraintBottom_toTopOf="@+id/fl_banner"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:strokeWidth="0dp" />
+
+        <FrameLayout
+            android:id="@+id/fl_banner"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:padding="1dp"
+            app:layout_constraintBottom_toBottomOf="parent" />
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+</layout>

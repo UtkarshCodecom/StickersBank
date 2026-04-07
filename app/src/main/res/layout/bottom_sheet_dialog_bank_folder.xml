@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    app:layout_behavior="@string/bottom_sheet_behavior">
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/cl_header"
+        android:layout_width="match_parent"
+        android:layout_height="?actionBarSize"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <TextView
+            android:id="@+id/tv_title"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:fontFamily="@font/roboto_medium"
+            android:text="Add to bank folder"
+            android:textAllCaps="true"
+            android:textColor="@color/gray_font"
+            android:textSize="@dimen/_12sdp"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_close"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton.Icon"
+            android:layout_width="50dp"
+            android:layout_height="match_parent"
+            android:insetLeft="0dp"
+            android:insetTop="0dp"
+            android:insetRight="0dp"
+            android:insetBottom="0dp"
+            android:padding="0dp"
+            app:icon="@drawable/ic_close_2"
+            app:iconGravity="textStart"
+            app:iconPadding="0dp"
+            app:iconSize="36dp"
+            app:iconTint="@null"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:shapeAppearanceOverlay="@style/ShapeAppearanceOverlay.MyApp.Button.Circle"
+            app:strokeWidth="0dp" />
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/rv_folder"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_marginBottom="16dip"
+        android:minHeight="@dimen/_170sdp"
+        app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager"
+        app:layout_constraintBottom_toTopOf="@+id/outlinedTextField"
+        app:layout_constraintTop_toBottomOf="@+id/cl_header" />
+
+    <com.google.android.material.textfield.TextInputLayout
+        android:id="@+id/outlinedTextField"
+        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="16dip"
+        android:layout_marginEnd="@dimen/_5sdp"
+        android:layout_marginBottom="16dip"
+        android:hint="Enter folder name"
+        app:boxCornerRadiusBottomEnd="@dimen/_7sdp"
+        app:boxCornerRadiusBottomStart="@dimen/_7sdp"
+        app:boxCornerRadiusTopEnd="@dimen/_7sdp"
+        app:boxCornerRadiusTopStart="@dimen/_7sdp"
+        app:boxStrokeColor="@color/meri_gold"
+        app:hintTextColor="@color/meri_gold"
+        app:layout_constraintBottom_toTopOf="@+id/cb_animated"
+        app:layout_constraintEnd_toStartOf="@+id/btn_new_folder"
+        app:layout_constraintStart_toStartOf="parent">
+
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/edt_folder_name"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:fontFamily="@font/roboto_medium"
+            android:singleLine="true"
+            android:textSize="@dimen/_12sdp" />
+
+    </com.google.android.material.textfield.TextInputLayout>
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btn_new_folder"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginEnd="16dip"
+        android:backgroundTint="@color/meri_gold"
+        android:fontFamily="@font/roboto_medium"
+        android:insetTop="0dp"
+        android:insetBottom="0dp"
+        android:text="@string/new_folder"
+        android:textAllCaps="true"
+        android:textColor="@color/denim"
+        android:textSize="@dimen/_11sdp"
+        android:textStyle="bold"
+        app:cornerRadius="@dimen/_7sdp"
+        app:layout_constraintBottom_toBottomOf="@+id/outlinedTextField"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="@+id/outlinedTextField" />
+
+    <CheckBox
+        android:id="@+id/cb_animated"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="@dimen/_14sdp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="@+id/outlinedTextField" />
+
+    <TextView
+        android:id="@+id/tv_is_animated"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="@dimen/_14sdp"
+        android:fontFamily="@font/quicksand_medium"
+        android:includeFontPadding="false"
+        android:text="@string/is_animated"
+        android:textColor="@color/black"
+        android:textSize="@dimen/_12sdp"
+        app:layout_constraintBottom_toBottomOf="@+id/cb_animated"
+        app:layout_constraintStart_toEndOf="@+id/cb_animated"
+        app:layout_constraintTop_toTopOf="@+id/cb_animated" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>
