@@ -34,24 +34,22 @@ public class VideoPlayer implements Player.EventListener, TimeBar.OnScrubListene
     private Runnable progressUpdater;
 
     public VideoPlayer(Context context) {
-        BandwidthMeter bandwidthMeter = new DefaultBandwidthMeter();
-        TrackSelection.Factory videoTrackSelectionFactory =
-                new AdaptiveTrackSelection.Factory(bandwidthMeter);
-        TrackSelector trackSelector =
-                new DefaultTrackSelector(videoTrackSelectionFactory);
+        TrackSelector trackSelector = new DefaultTrackSelector(context);
         LoadControl loadControl = new DefaultLoadControl();
-        player = ExoPlayerFactory.newSimpleInstance(new DefaultRenderersFactory(context), trackSelector, loadControl);
+        player = new SimpleExoPlayer.Builder(context)
+                .setTrackSelector(trackSelector)
+                .setLoadControl(loadControl)
+                .build();
         player.setRepeatMode(Player.REPEAT_MODE_OFF);
         player.addListener(this);
         progressHandler = new Handler();
     }
 
     public void initMediaSource(Context context, String uri) {
-        DataSource.Factory dataSourceFactory = new DefaultDataSourceFactory(context, Util.getUserAgent(context, "ExoPlayer"));
-        ExtractorsFactory extractorsFactory = new DefaultExtractorsFactory();
-        MediaSource videoSource = new ExtractorMediaSource(Uri.parse(uri),
-                dataSourceFactory, extractorsFactory, null, null);
-
+        DataSource.Factory dataSourceFactory = new DefaultDataSourceFactory(context,
+                Util.getUserAgent(context, "ExoPlayer"));
+        MediaSource videoSource = new ProgressiveMediaSource.Factory(dataSourceFactory)
+                .createMediaSource(MediaItem.fromUri(Uri.parse(uri)));
         player.prepare(videoSource);
         player.addVideoListener(this);
     }
@@ -78,7 +76,7 @@ public class VideoPlayer implements Player.EventListener, TimeBar.OnScrubListene
     }
 
     @Override
-    public void onTimelineChanged(Timeline timeline, Object manifest, int reason) {
+    public void onTimelineChanged(Timeline timeline, int reason) {
         updateProgress();
     }
 
@@ -158,8 +156,8 @@ public class VideoPlayer implements Player.EventListener, TimeBar.OnScrubListene
         long position = player.getCurrentPosition();
         int playbackState = player.getPlaybackState();
         long delayMs;
-        if (playbackState != ExoPlayer.STATE_IDLE && playbackState != ExoPlayer.STATE_ENDED) {
-            if (player.getPlayWhenReady() && playbackState == ExoPlayer.STATE_READY) {
+        if (playbackState != Player.STATE_IDLE && playbackState != Player.STATE_ENDED) {
+            if (player.getPlayWhenReady() && playbackState == Player.STATE_READY) {
                 delayMs = 1000 - (position % 1000);
                 if (delayMs < 200) {
                     delayMs += 1000;
