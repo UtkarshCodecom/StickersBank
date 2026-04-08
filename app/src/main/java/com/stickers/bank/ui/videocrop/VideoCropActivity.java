@@ -363,9 +363,8 @@ public class VideoCropActivity extends AppCompatActivity implements VideoPlayer.
         mTvCropProgress.setText("0%");
 
         statistics = null;
-        FFmpegKitConfig.resetStatistics();
 
-        FFmpegKit.executeAsync(cmd, session -> {
+        FFmpegKit.executeWithArgumentsAsync(cmd, session -> {
 
             runOnUiThread(() -> {
                 mIvDone.setEnabled(true);
@@ -396,13 +395,12 @@ public class VideoCropActivity extends AppCompatActivity implements VideoPlayer.
         mTvCropProgress.setText("0%");
 
         statistics = null;
-        FFmpegKitConfig.resetStatistics();
 
         //String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(new Date());
         String outputName = "sticker_" + name + ".webp";
         String outputFile = getOutputVideoFolder() + "/" + outputName;
 
-        FFmpegKit.executeAsync(getWebpCmdCompress(inputCroppedVideo, outputFile), session -> {
+        FFmpegKit.executeWithArgumentsAsync(getWebpCmdCompress(inputCroppedVideo, outputFile), session -> {
 
             runOnUiThread(() -> {
                 mIvDone.setEnabled(true);

@@ -40,7 +40,7 @@ android {
 
     signingConfigs {
         release {
-            storeFile file("D:\\Android\\Workspace\\StickersBank\\StickersBank.jks")
+            storeFile rootProject.file("StickersBank.jks")
             storePassword "StickersBank"
             keyAlias "stickersbank"
             keyPassword "StickersBank"
@@ -58,7 +58,7 @@ android {
             buildConfigField("String", "ADV_IIDS", apikeyProperties['AD_ID_IR'])
             buildConfigField("String", "ADV_AOIDS", apikeyProperties['AD_ID_AOR'])
             buildConfigField("String", "ADV_NAIDS", apikeyProperties['AD_ID_NAR'])
-            manifestPlaceholders = [AD_IDS: AD_ID_R]
+            manifestPlaceholders = [AD_IDS: apikeyProperties['AD_APP_ID_R']]
         }
         debug {
             minifyEnabled true
@@ -69,7 +69,7 @@ android {
             buildConfigField("String", "ADV_IIDS", apikeyProperties['AD_ID_ID'])
             buildConfigField("String", "ADV_AOIDS", apikeyProperties['AD_ID_AOD'])
             buildConfigField("String", "ADV_NAIDS", apikeyProperties['AD_ID_NAD'])
-            manifestPlaceholders = [AD_IDS: AD_ID_D]
+            manifestPlaceholders = [AD_IDS: apikeyProperties['AD_APP_ID_D']]
         }
         applicationVariants.all { variant ->
             variant.outputs.all { output ->
@@ -141,7 +141,7 @@ dependencies {
 
     api "com.google.android.exoplayer:exoplayer-ui:2.14.1"
     api "com.google.android.exoplayer:exoplayer-core:2.14.1"
-    implementation 'com.arthenica:ffmpeg-kit-full:4.5.1'
+    implementation 'com.arthenica:ffmpeg-kit-full:5.1'
 
     //Retrofit,Ok-http
     implementation 'com.squareup.retrofit2:converter-gson:2.9.0'
@@ -152,7 +152,7 @@ dependencies {
     annotationProcessor 'com.github.bumptech.glide:compiler:4.14.2'
     implementation "androidx.swiperefreshlayout:swiperefreshlayout:1.1.0"
 
-    implementation 'com.mindorks.android:prdownloader:0.6.0'
+    implementation 'com.github.amitshekhariitbhu:PRDownloader:1.0.2'
     implementation platform('com.google.firebase:firebase-bom:32.2.0')
     implementation 'com.google.firebase:firebase-analytics'
 }
