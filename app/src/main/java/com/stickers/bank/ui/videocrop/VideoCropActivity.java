@@ -182,6 +182,7 @@ public class VideoCropActivity extends AppCompatActivity implements VideoPlayer.
         mVideoPlayer.release();
         stopRepeatingTask();
         FFmpegKit.cancel();
+        FFmpegKitConfig.enableStatisticsCallback(null);
         super.onDestroy();
     }
 
@@ -376,7 +377,7 @@ public class VideoCropActivity extends AppCompatActivity implements VideoPlayer.
             });
 
             if (isSuccess(session.getReturnCode())) {
-                convertWebp(outputPath);
+                runOnUiThread(() -> convertWebp(outputPath));
             } else if (isCancel(session.getReturnCode())) {
                 //cancelled
             } else {
