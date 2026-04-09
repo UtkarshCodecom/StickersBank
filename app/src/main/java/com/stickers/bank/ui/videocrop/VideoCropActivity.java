@@ -1,7 +1,7 @@
 package com.stickers.bank.ui.videocrop;
 
-import static com.arthenica.mobileffmpeg.Config.RETURN_CODE_CANCEL;
-import static com.arthenica.mobileffmpeg.Config.RETURN_CODE_SUCCESS;
+import static com.arthenica.ffmpegkit.ReturnCode.isSuccess;
+import static com.arthenica.ffmpegkit.ReturnCode.isCancel;
 
 import android.Manifest;
 import android.content.Context;
@@ -26,10 +26,9 @@ import androidx.appcompat.widget.AppCompatImageView;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
-import com.arthenica.mobileffmpeg.Config;
-import com.arthenica.mobileffmpeg.ExecuteCallback;
-import com.arthenica.mobileffmpeg.FFmpeg;
-import com.arthenica.mobileffmpeg.Statistics;
+import com.arthenica.ffmpegkit.FFmpegKit;
+import com.arthenica.ffmpegkit.FFmpegKitConfig;
+import com.arthenica.ffmpegkit.Statistics;
 import com.bumptech.glide.Glide;
 import com.bumptech.glide.load.resource.drawable.DrawableTransitionOptions;
 import com.bumptech.glide.request.RequestOptions;
@@ -182,7 +181,7 @@ public class VideoCropActivity extends AppCompatActivity implements VideoPlayer.
     public void onDestroy() {
         mVideoPlayer.release();
         stopRepeatingTask();
-        FFmpeg.cancel();
+        FFmpegKit.cancel();
         super.onDestroy();
     }
 
@@ -364,27 +363,24 @@ public class VideoCropActivity extends AppCompatActivity implements VideoPlayer.
         mTvCropProgress.setText("0%");
 
         statistics = null;
-        Config.resetStatistics();
 
-        long executionId = com.arthenica.mobileffmpeg.FFmpeg.executeAsync(cmd, new ExecuteCallback() {
+        FFmpegKit.executeWithArgumentsAsync(cmd, session -> {
 
-            @Override
-            public void apply(final long executionId, final int returnCode) {
-
+            runOnUiThread(() -> {
                 mIvDone.setEnabled(true);
                 mIvPlay.setEnabled(true);
                 mProgressBar.setVisibility(View.INVISIBLE);
                 mProgressBar.setProgress(0);
                 mTvCropProgress.setVisibility(View.INVISIBLE);
                 mTvCropProgress.setText("0%");
+            });
 
-                if (returnCode == RETURN_CODE_SUCCESS) {
-                    convertWebp(outputPath);
-                } else if (returnCode == RETURN_CODE_CANCEL) {
-                    //Log.e(Config.TAG, "Async command execution cancelled by user.");
-                } else {
-                    //Log.e(Config.TAG, String.format("Async command execution failed with returnCode=%d.", returnCode));
-                }
+            if (isSuccess(session.getReturnCode())) {
+                convertWebp(outputPath);
+            } else if (isCancel(session.getReturnCode())) {
+                //cancelled
+            } else {
+                //failed
             }
         });
     }
@@ -399,35 +395,33 @@ public class VideoCropActivity extends AppCompatActivity implements VideoPlayer.
         mTvCropProgress.setText("0%");
 
         statistics = null;
-        Config.resetStatistics();
 
         //String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(new Date());
         String outputName = "sticker_" + name + ".webp";
         String outputFile = getOutputVideoFolder() + "/" + outputName;
 
-        long executionId = FFmpeg.executeAsync(getWebpCmdCompress(inputCroppedVideo, outputFile), new ExecuteCallback() {
+        FFmpegKit.executeWithArgumentsAsync(getWebpCmdCompress(inputCroppedVideo, outputFile), session -> {
 
-            @Override
-            public void apply(final long executionId, final int returnCode) {
-
+            runOnUiThread(() -> {
                 mIvDone.setEnabled(true);
                 mIvPlay.setEnabled(true);
                 mProgressBar.setVisibility(View.INVISIBLE);
                 mProgressBar.setProgress(0);
                 mTvCropProgress.setVisibility(View.INVISIBLE);
                 mTvCropProgress.setText("0%");
+            });
 
-                if (returnCode == RETURN_CODE_SUCCESS) {
-                    // Log.e(Config.TAG, "Async command execution completed successfully.");
+            if (isSuccess(session.getReturnCode())) {
+                runOnUiThread(() -> {
                     Intent intent = new Intent();
                     intent.putExtra(ParamArgus.PATH, outputFile);
                     setResult(RESULT_OK, intent);
                     finish();
-                } else if (returnCode == RETURN_CODE_CANCEL) {
-                    //Log.e(Config.TAG, "Async command execution cancelled by user.");
-                } else {
-                    //Log.e(Config.TAG, String.format("Async command execution failed with returnCode=%d.", returnCode));
-                }
+                });
+            } else if (isCancel(session.getReturnCode())) {
+                //cancelled
+            } else {
+                //failed
             }
         });
     }
@@ -500,7 +494,7 @@ public class VideoCropActivity extends AppCompatActivity implements VideoPlayer.
     }
 
     public void enableStatisticsCallback() {
-        Config.enableStatisticsCallback(newStatistics -> {
+        FFmpegKitConfig.enableStatisticsCallback(newStatistics -> {
             VideoCropActivity.this.statistics = newStatistics;
             //update progress
 
@@ -583,7 +577,7 @@ public class VideoCropActivity extends AppCompatActivity implements VideoPlayer.
     private void buildMediaSource() {
         mVideoPlayer.getPlayer().addListener(new Player.EventListener() {
             @Override
-            public void onTimelineChanged(Timeline timeline, Object manifest, int reason) {
+            public void onTimelineChanged(Timeline timeline, int reason) {
 
             }
 

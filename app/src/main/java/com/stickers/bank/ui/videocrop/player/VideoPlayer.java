@@ -7,29 +7,21 @@ import android.net.Uri;
 import android.os.Handler;
 
 import com.google.android.exoplayer2.DefaultLoadControl;
-import com.google.android.exoplayer2.DefaultRenderersFactory;
 import com.google.android.exoplayer2.ExoPlaybackException;
-import com.google.android.exoplayer2.ExoPlayer;
-import com.google.android.exoplayer2.ExoPlayerFactory;
 import com.google.android.exoplayer2.LoadControl;
+import com.google.android.exoplayer2.MediaItem;
 import com.google.android.exoplayer2.PlaybackParameters;
 import com.google.android.exoplayer2.Player;
 import com.google.android.exoplayer2.SimpleExoPlayer;
 import com.google.android.exoplayer2.Timeline;
-import com.google.android.exoplayer2.extractor.DefaultExtractorsFactory;
-import com.google.android.exoplayer2.extractor.ExtractorsFactory;
-import com.google.android.exoplayer2.source.ExtractorMediaSource;
 import com.google.android.exoplayer2.source.MediaSource;
+import com.google.android.exoplayer2.source.ProgressiveMediaSource;
 import com.google.android.exoplayer2.source.TrackGroupArray;
-import com.google.android.exoplayer2.trackselection.AdaptiveTrackSelection;
 import com.google.android.exoplayer2.trackselection.DefaultTrackSelector;
-import com.google.android.exoplayer2.trackselection.TrackSelection;
 import com.google.android.exoplayer2.trackselection.TrackSelectionArray;
 import com.google.android.exoplayer2.trackselection.TrackSelector;
 import com.google.android.exoplayer2.ui.TimeBar;
-import com.google.android.exoplayer2.upstream.BandwidthMeter;
 import com.google.android.exoplayer2.upstream.DataSource;
-import com.google.android.exoplayer2.upstream.DefaultBandwidthMeter;
 import com.google.android.exoplayer2.upstream.DefaultDataSourceFactory;
 import com.google.android.exoplayer2.util.Util;
 import com.google.android.exoplayer2.video.VideoListener;
@@ -42,24 +34,22 @@ public class VideoPlayer implements Player.EventListener, TimeBar.OnScrubListene
     private Runnable progressUpdater;
 
     public VideoPlayer(Context context) {
-        BandwidthMeter bandwidthMeter = new DefaultBandwidthMeter();
-        TrackSelection.Factory videoTrackSelectionFactory =
-                new AdaptiveTrackSelection.Factory(bandwidthMeter);
-        TrackSelector trackSelector =
-                new DefaultTrackSelector(videoTrackSelectionFactory);
+        TrackSelector trackSelector = new DefaultTrackSelector(context);
         LoadControl loadControl = new DefaultLoadControl();
-        player = ExoPlayerFactory.newSimpleInstance(new DefaultRenderersFactory(context), trackSelector, loadControl);
+        player = new SimpleExoPlayer.Builder(context)
+                .setTrackSelector(trackSelector)
+                .setLoadControl(loadControl)
+                .build();
         player.setRepeatMode(Player.REPEAT_MODE_OFF);
         player.addListener(this);
         progressHandler = new Handler();
     }
 
     public void initMediaSource(Context context, String uri) {
-        DataSource.Factory dataSourceFactory = new DefaultDataSourceFactory(context, Util.getUserAgent(context, "ExoPlayer"));
-        ExtractorsFactory extractorsFactory = new DefaultExtractorsFactory();
-        MediaSource videoSource = new ExtractorMediaSource(Uri.parse(uri),
-                dataSourceFactory, extractorsFactory, null, null);
-
+        DataSource.Factory dataSourceFactory = new DefaultDataSourceFactory(context,
+                Util.getUserAgent(context, "ExoPlayer"));
+        MediaSource videoSource = new ProgressiveMediaSource.Factory(dataSourceFactory)
+                .createMediaSource(MediaItem.fromUri(Uri.parse(uri)));
         player.prepare(videoSource);
         player.addVideoListener(this);
     }
@@ -86,7 +76,7 @@ public class VideoPlayer implements Player.EventListener, TimeBar.OnScrubListene
     }
 
     @Override
-    public void onTimelineChanged(Timeline timeline, Object manifest, int reason) {
+    public void onTimelineChanged(Timeline timeline, int reason) {
         updateProgress();
     }
 
@@ -166,8 +156,8 @@ public class VideoPlayer implements Player.EventListener, TimeBar.OnScrubListene
         long position = player.getCurrentPosition();
         int playbackState = player.getPlaybackState();
         long delayMs;
-        if (playbackState != ExoPlayer.STATE_IDLE && playbackState != ExoPlayer.STATE_ENDED) {
-            if (player.getPlayWhenReady() && playbackState == ExoPlayer.STATE_READY) {
+        if (playbackState != Player.STATE_IDLE && playbackState != Player.STATE_ENDED) {
+            if (player.getPlayWhenReady() && playbackState == Player.STATE_READY) {
                 delayMs = 1000 - (position % 1000);
                 if (delayMs < 200) {
                     delayMs += 1000;
