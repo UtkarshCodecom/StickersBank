@@ -8,6 +8,7 @@ def apikeyProperties = new Properties()
 apikeyProperties.load(new FileInputStream(apikeyPropertiesFile))
 
 android {
+    namespace "com.stickers.bank"
     compileSdk 33
 
     defaultConfig {
@@ -51,6 +52,7 @@ android {
         release {
             minifyEnabled true
             shrinkResources true
+            android.buildFeatures.buildConfig true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
             //signingConfig signingConfigs.release
             signingConfig signingConfigs.release
@@ -63,6 +65,7 @@ android {
         debug {
             minifyEnabled true
             shrinkResources true
+            android.buildFeatures.buildConfig true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
             signingConfig signingConfigs.debug
             buildConfigField("String", "ADV_BIDS", apikeyProperties['AD_ID_BD'])
