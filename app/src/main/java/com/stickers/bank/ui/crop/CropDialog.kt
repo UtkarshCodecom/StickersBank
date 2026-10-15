@@ -385,7 +385,7 @@ fun CropDialog(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                listOf(false to "Keep", true to "Remove · keep person").forEach { (value, label) ->
+                listOf(false to "Keep Background", true to "Remove Background").forEach { (value, label) ->
                     val sel = removeBg == value
                     Box(
                         Modifier.clip(RoundedCornerShape(50))
