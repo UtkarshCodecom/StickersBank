@@ -42,6 +42,9 @@ private data class PackRequest(
     val animated: Boolean,
     /** Fixed identifier — only the growing "Stickers Bank" pack has one; null = a new pack. */
     val identifier: String? = null,
+    /** Open WhatsApp's add screen even if WhatsApp reports the pack as added — the moment the
+     * "Stickers Bank" pack first reaches 3 is when the user expects to see WhatsApp. */
+    val showAddScreen: Boolean = false,
     /** For Analytics: how it was sent, and which stickers count as sent. */
     val via: String = "whatsapp",
     val sentIds: List<String> = stickers.map { it.id },
@@ -67,7 +70,12 @@ private fun rememberWhatsAppPackSender(): (List<PackRequest>) -> Unit {
     ) { result ->
         val error = result.data?.getStringExtra("validation_error")
         if (error != null) {
-            Toast.makeText(context, "WhatsApp couldn't add the pack: $error", Toast.LENGTH_LONG).show()
+            Toast.makeText(
+                context,
+                if (error.contains("already", ignoreCase = true)) "This pack is already in WhatsApp — new stickers show up there in a moment."
+                else "WhatsApp couldn't add the pack: $error",
+                Toast.LENGTH_LONG,
+            ).show()
         }
         if (queue.isNotEmpty()) {
             // A beat for WhatsApp's screen to finish closing before the next one opens.
@@ -129,7 +137,7 @@ private fun rememberWhatsAppPackSender(): (List<PackRequest>) -> Unit {
                     val result = try {
                         withContext(Dispatchers.IO) {
                             StickerExporter.buildWhatsAppPack(context, req.name, req.stickers, animated = req.animated, identifier = req.identifier)
-                                ?.let { it to StickerExporter.isPackAdded(context, pkg, it.pack.identifier) }
+                                ?.let { it to (!req.showAddScreen && StickerExporter.isPackAdded(context, pkg, it.pack.identifier)) }
                         }
                     } catch (e: kotlinx.coroutines.CancellationException) {
                         preparing = null
@@ -287,6 +295,8 @@ private fun rememberSinglesSender(sender: (List<PackRequest>) -> Unit): (List<St
                         val ids = t.stickers.map { it.id }.toSet()
                         PackRequest(
                             t.name, t.stickers, animated = t.animated, identifier = t.identifier,
+                            // Just reached 3 → this is the "now it goes to WhatsApp" moment.
+                            showAddScreen = t.stickers.size == PackBuilder.MIN_STICKERS,
                             via = "whatsappSingle", sentIds = stickers.map { it.id }.filter { it in ids },
                         )
                     },

@@ -27,7 +27,10 @@ object SinglesPack {
         val members = sameKind.chunked(PackBuilder.MAX_STICKERS).getOrElse(page) { listOf(sticker) }
         // A fixed identifier, so the pack GROWS in WhatsApp as stickers are added. Not
         // "stickers_bank": an exported bank called "Stickers Bank" must stay a separate pack.
-        val identifier = "sb_singles" + (if (animated) "_anim" else "") + (if (page > 0) "_${page + 1}" else "")
+        // Not the old "sb_singles" either: that filler-padded pack may still be in people's
+        // WhatsApp, and reusing its id made the 3rd sticker look "already added" — so WhatsApp's
+        // add screen never opened for the new pack.
+        val identifier = "sb_bank" + (if (animated) "_anim" else "") + (if (page > 0) "_${page + 1}" else "")
         val name = NAME + (if (animated) " Animated" else "") + (if (page > 0) " ${page + 1}" else "")
         return Target(identifier, name, members, animated)
     }
