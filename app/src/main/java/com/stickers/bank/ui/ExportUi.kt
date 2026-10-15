@@ -137,7 +137,9 @@ private fun rememberWhatsAppPackSender(): (List<PackRequest>) -> Unit {
                     }
                     val result = try {
                         withContext(Dispatchers.IO) {
-                            StickerExporter.buildWhatsAppPack(context, req.name, req.stickers, animated = req.animated, identifier = req.identifier)
+                            // Stickers the user made go out with the small Stickers Bank badge.
+                            val stickers = com.stickers.bank.util.StickerBadge.branded(context, req.stickers)
+                            StickerExporter.buildWhatsAppPack(context, req.name, stickers, animated = req.animated, identifier = req.identifier)
                                 ?.let { it to (!req.showAddScreen && StickerExporter.isPackAdded(context, pkg, it.pack.identifier)) }
                         }
                     } catch (e: kotlinx.coroutines.CancellationException) {
@@ -273,10 +275,13 @@ fun rememberSingleStickerToWhatsApp(): (Sticker) -> Unit {
 @Composable
 private fun rememberSinglesSender(sender: (List<PackRequest>) -> Unit): (List<Sticker>) -> Unit {
     val context = LocalContext.current
-    return { stickers ->
+    val scope = rememberCoroutineScope()
+    return { picked ->
         if (StickerExporter.whatsAppPackages(context).isEmpty()) {
             toast(context, "WhatsApp is not installed.")
-        } else if (stickers.isNotEmpty()) {
+        } else if (picked.isNotEmpty()) scope.launch {
+            // The bank keeps the badged copy of a sticker the user made, same as a pack would.
+            val stickers = withContext(Dispatchers.IO) { com.stickers.bank.util.StickerBadge.branded(context, picked) }
             val bank = stickers.map { ServiceLocator.bankRepository.addToSinglesPack(it) }.last()
             val targets = stickers.map { SinglesPack.targetFor(bank.stickers, it) }.distinctBy { it.identifier }
             val (ready, short) = targets.partition { it.stickers.size >= PackBuilder.MIN_STICKERS }

@@ -48,6 +48,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -105,6 +107,7 @@ fun StickerDetailSheet(
 ) {
     if (stickers.isEmpty()) return
     val context = LocalContext.current
+    val badgeScope = rememberCoroutineScope()
     val banks by ServiceLocator.bankRepository.banks.collectAsStateSafe()
     val favoriteIds by ServiceLocator.favoritesRepository.ids.collectAsStateSafe()
     val shareSingle = rememberSingleShare()
@@ -270,11 +273,26 @@ fun StickerDetailSheet(
             onDismiss = { showNewBank = false },
             onConfirm = { name ->
                 val bank = ServiceLocator.bankRepository.createBank(name)
-                ServiceLocator.bankRepository.addSticker(bank.id, current)
+                addToBankBadged(badgeScope, context, bank.id, current)
                 Toast.makeText(context, "Added to ${bank.name}", Toast.LENGTH_SHORT).show()
                 showNewBank = false
             },
         )
+    }
+}
+
+/** Adds [sticker] to a bank — one the user made goes in as its copy with the small Stickers
+ * Bank badge (see StickerBadge), the same as when it's sent to WhatsApp. */
+private fun addToBankBadged(scope: kotlinx.coroutines.CoroutineScope, context: android.content.Context, bankId: String, sticker: Sticker) {
+    if (!sticker.custom) {
+        ServiceLocator.bankRepository.addSticker(bankId, sticker)
+        return
+    }
+    scope.launch {
+        val badged = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            com.stickers.bank.util.StickerBadge.branded(context, listOf(sticker)).first()
+        }
+        ServiceLocator.bankRepository.addSticker(bankId, badged)
     }
 }
 
@@ -284,6 +302,8 @@ private fun ColumnScope.BankPickerBody(
     banks: List<com.stickers.bank.data.model.Bank>,
     onNewBank: () -> Unit,
 ) {
+    val context = LocalContext.current
+    val badgeScope = rememberCoroutineScope()
     Text(
         "ADD TO BANK", color = Gold, fontSize = 12.sp, letterSpacing = 2.sp, fontWeight = FontWeight.Bold,
         modifier = Modifier.padding(top = 14.dp, bottom = 6.dp).align(Alignment.Start),
@@ -295,7 +315,7 @@ private fun ColumnScope.BankPickerBody(
                 Modifier.fillMaxWidth().padding(bottom = 8.dp).neuRaised(cornerRadius = 12.dp, elevation = 6.dp).clip(RoundedCornerShape(12.dp))
                     .clickable {
                         if (inBank) ServiceLocator.bankRepository.removeSticker(bank.id, sticker.id)
-                        else ServiceLocator.bankRepository.addSticker(bank.id, sticker)
+                        else addToBankBadged(badgeScope, context, bank.id, sticker)
                     }
                     .padding(horizontal = 14.dp, vertical = 14.dp),
                 verticalAlignment = Alignment.CenterVertically,

@@ -61,6 +61,7 @@ import androidx.compose.material.icons.rounded.Flip
 import androidx.compose.material.icons.rounded.FlipToFront
 import androidx.compose.material.icons.rounded.FlipToBack
 import androidx.compose.material.icons.rounded.Image
+import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Layers
 import androidx.compose.material.icons.rounded.MoreHoriz
 import androidx.compose.material.icons.rounded.Movie
@@ -356,6 +357,8 @@ fun EditorScreen(nav: NavHostController, stickerId: String?, animated: Boolean) 
     var playing by remember { mutableStateOf(false) }
     // The clip currently being read — a new pick cancels it, so two strips never interleave.
     var clipLoad by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
+    // The canvas square's side in dp, as last laid out (layers sized to fill it need it).
+    var canvasSideDp by remember { mutableStateOf(0f) }
 
     var base by remember { mutableStateOf(draft?.base) }
     var baseOffset by remember { mutableStateOf(draft?.baseOffset ?: Offset.Zero) }
@@ -461,6 +464,12 @@ fun EditorScreen(nav: NavHostController, stickerId: String?, animated: Boolean) 
     // see is what gets saved), on their own otherwise. Paused while saving — the exporter sets
     // each frame's time itself then.
     val hasAnimatedItems = isAnim && items.any { it is ImageItem && it.animation != null }
+    // The base is the VIDEO's frame only in Animation mode with a clip; otherwise (Sticker mode,
+    // or a photo in Animation mode) it's a photo, with all the photo controls.
+    val clipMode = isAnim && videoUri != null
+    // Something's there in Animation mode, but nothing that moves — Done can't make an animation.
+    val animNeedsMotion = isAnim && videoUri == null && !hasAnimatedItems &&
+        (base != null || items.isNotEmpty() || drawStrokes.isNotEmpty() || bgColor != null)
     LaunchedEffect(hasAnimatedItems) {
         if (!hasAnimatedItems) return@LaunchedEffect
         val start = System.currentTimeMillis()
@@ -640,6 +649,15 @@ fun EditorScreen(nav: NavHostController, stickerId: String?, animated: Boolean) 
     /** Makes [uri] the clip: reads its frames into the timeline (streamed — see previewFlow). */
     fun startClip(uri: Uri) {
         clipLoad?.cancel()
+        // A photo that was the background (Animation mode, before any video) becomes a layer
+        // over the clip instead of being thrown away — kept where and how big it was.
+        val photo = if (videoUri == null) base else null
+        if (photo != null && canvasSideDp > 0f) {
+            val layer = ImageItem(nextId++, photo, sizeDp = canvasSideDp - 8f).apply {
+                offset = baseOffset; scale = baseScale; rotation = baseRotation; alpha = baseAlpha
+            }
+            items.add(0, layer)
+        }
         clipLoad = scope.launch {
             videoUri = uri
             resetBaseAdjust()
@@ -676,7 +694,6 @@ fun EditorScreen(nav: NavHostController, stickerId: String?, animated: Boolean) 
     // old .mp4 clip as the video. It used to open as a still first frame with the empty-canvas
     // "Add a video" prompt sitting over it.
     var editLoading by remember { mutableStateOf(false) }
-    var canvasSideDp by remember { mutableStateOf(0f) }
     LaunchedEffect(stickerId) {
         if (stickerId == null || !isAnim || !animated) return@LaunchedEffect
         // Backing out mid-edit keeps a draft; that's the newer state, so don't load over it.
@@ -883,23 +900,45 @@ fun EditorScreen(nav: NavHostController, stickerId: String?, animated: Boolean) 
             // drawing) — a static image and a moving clip aren't interchangeable, so switching
             // modes partway through would just silently discard whatever was just added. Only
             // a completely untouched, brand-new session gets to choose freely.
-            val modeLocked = stickerId != null || base != null || videoUri != null ||
-                items.isNotEmpty() || drawStrokes.isNotEmpty()
+            // Locked only by what can't cross between the modes: a saved sticker being edited
+            // keeps its kind, and a video or an animated sticker can't go into a still. A photo,
+            // text, stickers and drawings work in both, so they no longer lock it.
+            val lockReason = when {
+                stickerId != null -> "You're editing a saved ${if (animated) "animation" else "sticker"}, so its type can't change."
+                videoUri != null -> "Delete the video first to switch to Sticker mode."
+                hasAnimatedItems -> "Remove the animated stickers first to switch to Sticker mode."
+                else -> null
+            }
+            val modeLocked = lockReason != null
+            fun switchMode(toAnim: Boolean) {
+                if (toAnim == isAnim) return
+                if (lockReason != null) Toast.makeText(context, lockReason, Toast.LENGTH_LONG).show()
+                else isAnim = toAnim
+            }
             Row(
                 Modifier.neuRaised(cornerRadius = 50.dp, elevation = 6.dp).clip(RoundedCornerShape(50)).padding(vertical = 3.dp),
                 horizontalArrangement = Arrangement.spacedBy(2.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                ModeSwitchBtn("Sticker", Icons.Rounded.Image, !isAnim, enabled = !modeLocked) { isAnim = false }
-                ModeSwitchBtn("Animation", Icons.Rounded.Movie, isAnim, enabled = !modeLocked) { isAnim = true }
+                // Always tappable, so a locked switch can explain itself instead of ignoring taps.
+                ModeSwitchBtn("Sticker", Icons.Rounded.Image, !isAnim, dimmed = modeLocked) { switchMode(false) }
+                ModeSwitchBtn("Animation", Icons.Rounded.Movie, isAnim, dimmed = modeLocked) { switchMode(true) }
             }
+            // Dimmed in Animation mode until there's a video or an animated sticker — a photo,
+            // text or drawing alone can't make an animation. A tap still says why.
+            val doneReady = !isAnim || videoUri != null || hasAnimatedItems
             PillButton(
                 "Done", Icons.Rounded.Check, filled = true,
-                modifier = Modifier.padding(start = 6.dp),
+                modifier = Modifier.padding(start = 6.dp).graphicsLayer { alpha = if (doneReady) 1f else 0.4f },
                 onClick = {
                     if (isAnim) {
-                        if (videoUri == null && !hasAnimatedItems) {
-                            Toast.makeText(context, "Add a video or an animated sticker first", Toast.LENGTH_SHORT).show()
+                        if (!doneReady) {
+                            Toast.makeText(
+                                context,
+                                if (animNeedsMotion) "A photo alone doesn't move. Add a video or an animated sticker to save an animation."
+                                else "Add a video or an animated sticker first",
+                                Toast.LENGTH_LONG,
+                            ).show()
                         } else showAd { showSaveDialog = true }
                     } else if (base == null && items.isEmpty() && drawStrokes.isEmpty()) {
                         Toast.makeText(context, "Add an image, text or drawing first", Toast.LENGTH_SHORT).show()
@@ -971,7 +1010,7 @@ fun EditorScreen(nav: NavHostController, stickerId: String?, animated: Boolean) 
                     contentAlignment = Alignment.Center,
                 ) {
                     bgColor?.let { Box(Modifier.matchParentSize().background(it)) }
-                    val photoOnTop = baseOnTop && !isAnim
+                    val photoOnTop = baseOnTop && !clipMode
                     val baseView: @Composable () -> Unit = { base?.let { bmp ->
                         EditableBase(
                             bitmap = bmp,
@@ -984,7 +1023,7 @@ fun EditorScreen(nav: NavHostController, stickerId: String?, animated: Boolean) 
                                     // Two fingers anywhere on the canvas resize/turn the selected
                                     // sticker or text — a small one can't fit two fingers on it.
                                     layer.scale = (layer.scale * zoom).coerceIn(0.1f, 12f); layer.rotation += rot
-                                } else if (!isAnim) {
+                                } else if (!clipMode) {
                                     baseOffset = applyCenterSnap(baseOffset + pan); baseScale *= zoom; baseScaleY *= zoom
                                     baseRotation += rot; selectedId = null; baseSelected = true; tab = EditorTab.LAYER
                                 }
@@ -992,7 +1031,7 @@ fun EditorScreen(nav: NavHostController, stickerId: String?, animated: Boolean) 
                             transformEnabled = tool == Tool.MOVE,
                             // pickBase's own callback sets cropTarget = Base before routing to crop.
                             onDoubleTap = {
-                                if (isAnim) pickVideo.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly))
+                                if (clipMode) pickVideo.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly))
                                 else pickBase.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
                             },
                             // Jump straight to the Layer tab — selecting it used to leave you on
@@ -1001,7 +1040,7 @@ fun EditorScreen(nav: NavHostController, stickerId: String?, animated: Boolean) 
                             selected = baseSelected,
                             // The clip frame always fills the canvas in Animation mode — the saved
                             // animation uses the whole frame, so resizing it here would mislead.
-                            onResize = if (isAnim) null else { sx, sy, shift ->
+                            onResize = if (clipMode) null else { sx, sy, shift ->
                                 baseScale = sx; baseScaleY = sy; baseOffset += shift
                             },
                         )
@@ -1049,6 +1088,21 @@ fun EditorScreen(nav: NavHostController, stickerId: String?, animated: Boolean) 
                 // On top of everything else in the canvas — the guide has to be visible over
                 // both the photo and any overlay it's being dragged past.
                 CenterGuides(snapGuideX, snapGuideY, Modifier.matchParentSize())
+                if (animNeedsMotion) {
+                    Row(
+                        Modifier.align(Alignment.TopCenter).padding(10.dp)
+                            .clip(RoundedCornerShape(50)).background(Color.Black.copy(alpha = 0.72f))
+                            .padding(horizontal = 12.dp, vertical = 7.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(Icons.Rounded.Info, null, tint = Gold, modifier = Modifier.size(15.dp))
+                        Text(
+                            "A photo doesn't move — add a video or an animated sticker to save",
+                            color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(start = 6.dp),
+                        )
+                    }
+                }
 
                 if (isAnim && videoUri == null) {
                     // Only while there's nothing at all — animated stickers, text or drawings on
@@ -1058,7 +1112,7 @@ fun EditorScreen(nav: NavHostController, stickerId: String?, animated: Boolean) 
                             com.stickers.bank.ui.components.ZigZagSpinner(Modifier.size(54.dp))
                             Text("Loading animation…", color = AppOnSurfaceMuted, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 10.dp))
                         }
-                    } else if (items.isEmpty() && drawStrokes.isEmpty() && bgColor == null) {
+                    } else if (base == null && items.isEmpty() && drawStrokes.isEmpty() && bgColor == null) {
                         AddPhotoPlaceholder(isVideo = true) { pickVideo.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly)) }
                     }
                 } else if (isAnim && base == null && framesLoading) {
@@ -1130,6 +1184,16 @@ fun EditorScreen(nav: NavHostController, stickerId: String?, animated: Boolean) 
                 if (isAnim) pickVideo.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly))
                 else pickBase.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
             }
+            if (isAnim) {
+                // A photo works in an animation too — as the background with no video, or as a
+                // layer over one. On its own it doesn't move, so Done waits for a video or an
+                // animated sticker (see the note on the canvas).
+                RailButton("Photo", Icons.Rounded.Image, railActive == 7) {
+                    railActive = 7
+                    if (videoUri == null) pickBase.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                    else pickOverlay.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                }
+            }
             RailButton("Text", Icons.Rounded.TextFields, railActive == 1) {
                 railActive = 1; editingTextItem = null; showTextDialog = true
             }
@@ -1153,7 +1217,7 @@ fun EditorScreen(nav: NavHostController, stickerId: String?, animated: Boolean) 
                 var moreOpen by remember { mutableStateOf(false) }
                 RailButton("More", Icons.Rounded.MoreHoriz, false) { moreOpen = true }
                 DropdownMenu(expanded = moreOpen, onDismissRequest = { moreOpen = false }) {
-                    if (!isAnim) {
+                    if (!clipMode) {
                         DropdownMenuItem(
                             text = { Text("Flip photo") },
                             enabled = base != null,
@@ -1170,7 +1234,7 @@ fun EditorScreen(nav: NavHostController, stickerId: String?, animated: Boolean) 
                         onClick = { resetBaseAdjust(); moreOpen = false },
                     )
                     DropdownMenuItem(
-                        text = { Text(if (isAnim) "Reset everything (keep video)" else "Reset everything (keep photo)") },
+                        text = { Text(if (clipMode) "Reset everything (keep video)" else "Reset everything (keep photo)") },
                         onClick = { resetEditor(); moreOpen = false },
                     )
                 }
@@ -1197,7 +1261,7 @@ fun EditorScreen(nav: NavHostController, stickerId: String?, animated: Boolean) 
             ) {
                 when (tab) {
                     EditorTab.CROP -> {
-                        if (isAnim) {
+                        if (clipMode) {
                             PanelHint("A video is cropped to a square for you. Trim its length on the timeline, and place stickers and text on top.")
                         } else if (base == null) {
                             PanelHint("Add a photo first, then crop it from here any time — not just when you first add it.")
@@ -1262,7 +1326,7 @@ fun EditorScreen(nav: NavHostController, stickerId: String?, animated: Boolean) 
 
                     EditorTab.ERASE -> {
                         PanelHint(
-                            if (isAnim) "Drag on the canvas to erase. Over a video only text, stickers and drawings can be erased — the clip itself stays whole."
+                            if (clipMode) "Drag on the canvas to erase. Over a video only text, stickers and drawings can be erased — the clip itself stays whole."
                             else "Drag on the canvas to erase anything — photo, text, stickers or drawings.",
                         )
                         AdjustSlider("Eraser size", brush, 15f..160f, 5f, { "${it.roundToInt()}" }, { brush = it }, { brush = 60f })
@@ -1273,7 +1337,7 @@ fun EditorScreen(nav: NavHostController, stickerId: String?, animated: Boolean) 
 
                     EditorTab.LAYER -> {
                         val item = selectedItem
-                        if (baseSelected && base != null && isAnim) {
+                        if (baseSelected && base != null && clipMode) {
                             // In Animation mode the "base" is the clip's preview frame, so this is
                             // about the video: swap it or take it out. (Its look is set with Adjust
                             // and Filter; its length on the timeline.)
@@ -1295,7 +1359,7 @@ fun EditorScreen(nav: NavHostController, stickerId: String?, animated: Boolean) 
                             PillButton("Flip photo", Icons.Rounded.Flip, Modifier.fillMaxWidth()) { baseFlipX = !baseFlipX }
                             // The photo has no place in the overlays' own order, so it's just above
                             // all of them or below all of them.
-                            if (!isAnim) {
+                            if (!clipMode) {
                                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                                     PillButton("To front", Icons.Rounded.FlipToFront, Modifier.weight(1f), filled = baseOnTop) { baseOnTop = true }
                                     PillButton("To back", Icons.Rounded.FlipToBack, Modifier.weight(1f), filled = !baseOnTop) { baseOnTop = false }
@@ -1817,15 +1881,15 @@ private fun BoxScope.AddPhotoPlaceholder(isVideo: Boolean = false, onClick: () -
 @Composable
 private fun ModeSwitchBtn(
     label: String, icon: ImageVector, selected: Boolean, modifier: Modifier = Modifier,
-    enabled: Boolean = true, onClick: () -> Unit,
+    dimmed: Boolean = false, onClick: () -> Unit,
 ) {
-    // Locked (editing an existing sticker/animation, see EditorScreen's `locked`): the
-    // non-selected side is only dimmed further, since a disabled `selected` side would look
-    // identical to enabled — the selected pill is already visually "on".
-    val alpha = if (enabled || selected) 1f else 0.35f
+    // Locked (see EditorScreen's `lockReason`): the non-selected side is dimmed, since a dimmed
+    // `selected` side would look the same — the selected pill is already visually "on". Still
+    // clickable: the tap explains why it won't switch.
+    val alpha = if (!dimmed || selected) 1f else 0.35f
     Row(
         modifier.clip(RoundedCornerShape(50)).background(if (selected) Gold else Color.Transparent)
-            .clickable(enabled = enabled, onClick = onClick)
+            .clickable(onClick = onClick)
             .padding(horizontal = if (selected) 12.dp else 9.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
