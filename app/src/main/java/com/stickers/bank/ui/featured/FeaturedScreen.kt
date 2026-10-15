@@ -645,7 +645,8 @@ private fun TodayBanner(modifier: Modifier) {
                 val topRef = minOf(happyRef.top, dayRef.top).toFloat()
                 val heightRef = maxOf(happyRef.bottom, dayRef.bottom) - topRef
                 val room = w - 2 * padX - dateW - h * 0.25f
-                val k = minOf(room / widthRef, innerH / heightRef).coerceAtLeast(0.05f)
+                // A touch under the largest fit (GREETING_FILL), so it doesn't crowd the edges.
+                val k = (minOf(room / widthRef, innerH / heightRef) * GREETING_FILL).coerceAtLeast(0.05f)
                 happyPaint.textSize = 100f * HAPPY_TO_DAY * k
                 dayPaint.textSize = 100f * k
                 val baseline = (h - heightRef * k) / 2f - topRef * k
@@ -670,6 +671,8 @@ private fun TodayBanner(modifier: Modifier) {
 /** The today banner's greeting proportions: "Happy" and the gap after it, relative to the day's size. */
 private const val HAPPY_TO_DAY = 0.78f
 private const val GAP_TO_DAY = 0.28f
+/** How much of the space it could fill the greeting actually takes. */
+private const val GREETING_FILL = 0.86f
 
 /** One banner slot — an image, or a playing video that reports completion so the rotation can advance. */
 @Composable

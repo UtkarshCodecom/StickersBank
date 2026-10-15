@@ -118,6 +118,12 @@ export default function AnalyticsDashboard({ onClose }) {
   }, [rows]);
 
   const stickerLabel = (id) => (names.stickers[id] ? (names.stickers[id].tags || []).slice(0, 2).map((t) => `#${t}`).join(' ') || 'Sticker' : 'Made in the app');
+  // Everything a sticker can be found by in the insights search: its tags, its category, its id.
+  const stickerSearchText = (id) => {
+    const st = names.stickers[id];
+    if (!st) return `made in the app ${id}`.toLowerCase();
+    return [...(st.tags || []), names.categories[st.categoryId] || '', id].join(' ').toLowerCase();
+  };
   const stickerThumb = (id) => {
     const url = names.stickers[id]?.imageUrl;
     if (!url) return <span className="an-thumb" />;
@@ -178,7 +184,7 @@ export default function AnalyticsDashboard({ onClose }) {
             <Ranked title="Most downloaded stickers" entries={data.stickerSentById} label={stickerLabel} thumb={stickerThumb} />
           </div>
 
-          <StickerInsights views={data.stickerViewsById} downloads={data.stickerSentById} label={stickerLabel} thumb={stickerThumb} />
+          <StickerInsights views={data.stickerViewsById} downloads={data.stickerSentById} label={stickerLabel} thumb={stickerThumb} searchText={stickerSearchText} />
         </div>
       )}
     </section>
@@ -263,16 +269,20 @@ function Ranked({ title, entries, label, thumb, note, limit = 10 }) {
  * Every sticker with any activity in the range: views, downloads, and the share of views that
  * turned into a download. Sortable by any number column; top 50 until expanded.
  */
-function StickerInsights({ views, downloads, label, thumb }) {
+function StickerInsights({ views, downloads, label, thumb, searchText }) {
   const [sortBy, setSortBy] = useState('downloads');
   const [all, setAll] = useState(false);
-  const rows = Object.keys({ ...views, ...downloads }).map((id) => {
+  const [query, setQuery] = useState('');
+  const allRows = Object.keys({ ...views, ...downloads }).map((id) => {
     const v = views[id] || 0;
     const d = downloads[id] || 0;
     return { id, views: v, downloads: d, rate: v ? d / v : 0 };
   });
+  // Every word typed has to match (tag, category or id); a leading # is optional.
+  const terms = query.toLowerCase().split(/\s+/).map((t) => t.replace(/^#/, '')).filter(Boolean);
+  const rows = terms.length ? allRows.filter((r) => { const hay = searchText(r.id); return terms.every((t) => hay.includes(t)); }) : allRows;
   rows.sort((a, b) => b[sortBy] - a[sortBy] || b.downloads - a.downloads || b.views - a.views);
-  const shown = all ? rows : rows.slice(0, 50);
+  const shown = all || terms.length ? rows : rows.slice(0, 50);
   const head = (key, text) => (
     <th>
       <button className="link" aria-pressed={sortBy === key} style={{ fontWeight: sortBy === key ? 800 : 400 }} onClick={() => setSortBy(key)}>
@@ -283,8 +293,23 @@ function StickerInsights({ views, downloads, label, thumb }) {
   return (
     <section className="an-card" style={{ marginTop: 12 }}>
       <h3>Sticker insights</h3>
-      {rows.length === 0 ? (
+      {allRows.length > 0 && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10, flexWrap: 'wrap' }}>
+          <input
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search stickers by tag, category or id…"
+            aria-label="Search sticker insights"
+            style={{ flex: '1 1 260px', maxWidth: 420 }}
+          />
+          {terms.length > 0 && <span className="muted small">{rows.length} of {allRows.length} stickers</span>}
+        </div>
+      )}
+      {allRows.length === 0 ? (
         <p className="muted small">No sticker activity for this range yet.</p>
+      ) : rows.length === 0 ? (
+        <p className="muted small">No stickers match “{query}”.</p>
       ) : (
         <>
           <table className="an-table">
@@ -302,7 +327,7 @@ function StickerInsights({ views, downloads, label, thumb }) {
               ))}
             </tbody>
           </table>
-          {rows.length > 50 && (
+          {rows.length > 50 && !terms.length && (
             <button className="link" style={{ marginTop: 8 }} onClick={() => setAll((v) => !v)}>
               {all ? 'Show top 50' : `Show all ${rows.length}`}
             </button>

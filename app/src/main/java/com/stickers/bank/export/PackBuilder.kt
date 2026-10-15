@@ -75,10 +75,8 @@ object PackBuilder {
      * 512x512 webp under 100KB and generates a 96x96 tray icon. Returns null if fewer than
      * [MIN_STICKERS] usable stickers were produced.
      *
-     * Without an [identifier] every distinct selection becomes a NEW pack (see [identifierFor])
-     * — adding stickers never overwrites a pack that's already in WhatsApp. Only the running
-     * singles pack (SinglesPack) passes a fixed identifier, because growing that one pack is
-     * the whole point of it.
+     * Every distinct selection becomes a NEW pack (see [identifierFor]) — adding stickers never
+     * overwrites a pack that's already in WhatsApp.
      */
     fun build(
         context: Context,
@@ -86,22 +84,15 @@ object PackBuilder {
         stickers: List<Sticker>,
         publisher: String = "Stickers Bank",
         animated: Boolean = false,
-        identifier: String? = null,
-        // Top a pack that's short of MIN_STICKERS up to it instead of giving up — only the
-        // single-sticker pack (SinglesPack) asks for this. Static packs get the branded
-        // fillers; an animated pack can't hold a still, so its own stickers are repeated.
-        padToMinimum: Boolean = false,
     ): Result? {
         val chosen = stickers.distinctBy { it.id }.take(MAX_STICKERS)
-        val id = identifier ?: identifierFor(name, chosen, animated)
-        val packName = (if (identifier != null) name else uniqueName(context, name.ifBlank { "Stickers Bank" }, id)).take(120)
+        val id = identifierFor(name, chosen, animated)
+        val packName = uniqueName(context, name.ifBlank { "Stickers Bank" }, id).take(120)
 
         // The same selection sent again: the pack is already built (and may well be in WhatsApp
         // already), so hand over what's there instead of re-downloading everything.
-        if (identifier == null) {
-            WaPackStore.load(context, id)?.let { existing ->
-                if (!existing.avoidCache && WaPackStore.isServeable(context, existing)) return Result(existing, 0)
-            }
+        WaPackStore.load(context, id)?.let { existing ->
+            if (!existing.avoidCache && WaPackStore.isServeable(context, existing)) return Result(existing, 0)
         }
 
         val dir = WaPackStore.packDir(context, id)
@@ -156,25 +147,6 @@ object PackBuilder {
                     File(staging, trayName).writeBytes(BitmapUtils.toTrayPng(bmp))
                     trayWritten = true
                 }
-            }
-        }
-
-        if (padToMinimum && trayWritten && waStickers.size < MIN_STICKERS) {
-            if (!animated) {
-                for (filler in SinglesPack.brandFillers(context)) {
-                    if (waStickers.size >= MIN_STICKERS) break
-                    val fileName = fileName(waStickers.size)
-                    BitmapUtils.writeWebp(filler, File(staging, fileName))
-                    waStickers += WaSticker(imageFileName = fileName, emojis = listOf("😀"))
-                }
-            }
-            val real = waStickers.toList()
-            var i = 0
-            while (waStickers.size < MIN_STICKERS) {
-                val src = real[i++ % real.size]
-                val fileName = fileName(waStickers.size)
-                File(staging, src.imageFileName).copyTo(File(staging, fileName), overwrite = true)
-                waStickers += WaSticker(imageFileName = fileName, emojis = src.emojis)
             }
         }
 

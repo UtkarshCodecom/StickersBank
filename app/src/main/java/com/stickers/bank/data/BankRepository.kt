@@ -82,23 +82,4 @@ class BankRepository(context: Context) {
 
     fun contains(bankId: String, stickerId: String): Boolean =
         _banks.value.firstOrNull { it.id == bankId }?.stickers?.any { it.id == stickerId } == true
-
-    /**
-     * Appends a sticker to the "Stickers Bank" bank — the in-app record of the single-sticker
-     * pack in WhatsApp (see SinglesPack) — creating it if needed, and returns the up-to-date
-     * bank. The bank used to be called "WhatsApp Pack"; an existing one is renamed rather than
-     * left behind, so stickers added before keep their place in the same WhatsApp pack.
-     */
-    fun addToSinglesPack(sticker: Sticker): Bank {
-        val existing = _banks.value.firstOrNull { it.name.equals(SINGLES_BANK_NAME, ignoreCase = true) }
-            ?: _banks.value.firstOrNull { it.name == LEGACY_SINGLES_BANK_NAME }?.also { renameBank(it.id, SINGLES_BANK_NAME) }
-        val bankId = existing?.id ?: createBank(SINGLES_BANK_NAME).id
-        addSticker(bankId, sticker)
-        return _banks.value.first { it.id == bankId }
-    }
-
-    companion object {
-        const val SINGLES_BANK_NAME = "Stickers Bank"
-        private const val LEGACY_SINGLES_BANK_NAME = "WhatsApp Pack"
-    }
 }

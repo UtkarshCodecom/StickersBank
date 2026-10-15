@@ -66,6 +66,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Flip
 import androidx.compose.material.icons.rounded.Rotate90DegreesCcw
 import com.stickers.bank.ui.theme.AppBackground
 import com.stickers.bank.ui.theme.Gold
@@ -116,7 +117,10 @@ fun CropDialog(
         properties = DialogProperties(usePlatformDefaultWidth = false, dismissOnClickOutside = false),
     ) {
         var rotation by remember { mutableStateOf(0) } // 0/90/180/270, applied before cropping
-        val rotated = remember(bitmap, rotation) { if (rotation == 0) bitmap else rotateBitmap(bitmap, rotation) }
+        // Mirror image (left↔right) and water image (upside down), applied after the rotation.
+        var mirror by remember { mutableStateOf(false) }
+        var water by remember { mutableStateOf(false) }
+        val rotated = remember(bitmap, rotation, mirror, water) { transformBitmap(bitmap, rotation, mirror, water) }
 
         var ratio by remember { mutableStateOf<Float?>(null) }
         var trimShape by remember { mutableStateOf(TrimShape.NONE) }
@@ -420,6 +424,16 @@ fun CropDialog(
                         .clickable { rotation = (rotation + 90) % 360; crop = null }
                         .padding(10.dp),
                 ) { Icon(Icons.Rounded.Rotate90DegreesCcw, "Rotate 90°", tint = AppOnSurface, modifier = Modifier.size(18.dp)) }
+                // Flipping keeps the photo's size, so the crop box is mirrored with it and stays
+                // on the same part of the picture.
+                FlipChip("Mirror", mirror, iconRotation = 0f) {
+                    mirror = !mirror
+                    crop = crop?.let { Rect(imageRect.left + imageRect.right - it.right, it.top, imageRect.left + imageRect.right - it.left, it.bottom) }
+                }
+                FlipChip("Water", water, iconRotation = 90f) {
+                    water = !water
+                    crop = crop?.let { Rect(it.left, imageRect.top + imageRect.bottom - it.bottom, it.right, imageRect.top + imageRect.bottom - it.top) }
+                }
             }
 
             Text(
@@ -525,10 +539,39 @@ private fun resizeCorner(cur: Rect, bounds: Rect, ratio: Float?, anchor: Corner,
     return Rect(minX, minY, maxX, maxY)
 }
 
-private fun rotateBitmap(src: Bitmap, degrees: Int): Bitmap = runCatching {
-    val m = android.graphics.Matrix().apply { postRotate(degrees.toFloat()) }
-    Bitmap.createBitmap(src, 0, 0, src.width, src.height, m, true)
-}.getOrDefault(src)
+/** [src] turned by [degrees], then flipped left↔right ([mirror]) and/or upside down ([water]). */
+private fun transformBitmap(src: Bitmap, degrees: Int, mirror: Boolean, water: Boolean): Bitmap {
+    if (degrees == 0 && !mirror && !water) return src
+    return runCatching {
+        val m = android.graphics.Matrix().apply {
+            postRotate(degrees.toFloat())
+            postScale(if (mirror) -1f else 1f, if (water) -1f else 1f)
+        }
+        Bitmap.createBitmap(src, 0, 0, src.width, src.height, m, true)
+    }.getOrDefault(src)
+}
+
+/** A flip toggle in the ratio row: lit gold while that flip is on. */
+@Composable
+private fun FlipChip(label: String, on: Boolean, iconRotation: Float, onClick: () -> Unit) {
+    Row(
+        Modifier.clip(RoundedCornerShape(50))
+            .background(if (on) Gold else Color.Transparent)
+            .border(1.dp, if (on) Gold else AppOutline, RoundedCornerShape(50))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            Icons.Rounded.Flip, null, tint = if (on) OnGold else AppOnSurface,
+            modifier = Modifier.size(16.dp).graphicsLayer { rotationZ = iconRotation },
+        )
+        Text(
+            label, color = if (on) OnGold else AppOnSurface, fontSize = 12.sp, fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(start = 6.dp),
+        )
+    }
+}
 
 /** An L-bracket tracing the two box edges meeting at [corner] — a black shadow bar under a
  * white one on each arm, so it reads over both light and dark photos, unlike a flat colour

@@ -1,5 +1,8 @@
 package com.stickers.bank.ui.create
 
+import kotlinx.coroutines.flow.first
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.SideEffect
 import android.graphics.Bitmap
 import android.graphics.Canvas as AndroidCanvas
 import android.graphics.Paint
@@ -415,6 +418,8 @@ fun EditorScreen(nav: NavHostController, stickerId: String?, animated: Boolean) 
     // SavingOverlay so a slow save (especially video encoding) reads as "in progress" rather
     // than a Done tap that appeared to do nothing.
     var saving by remember { mutableStateOf(false) }
+    // 0–1 while an animation is being encoded (shown as a percentage); null = no figure to show.
+    var saveProgress by remember { mutableStateOf<Float?>(null) }
 
     // Re-decode the strip when a draft brought a clip back with us — pickVideo only runs for a
     // freshly chosen video, so without this a resumed animation draft would have no timeline.
@@ -577,8 +582,9 @@ fun EditorScreen(nav: NavHostController, stickerId: String?, animated: Boolean) 
 
     LaunchedEffect(stickerId) {
         // Skip re-loading the original from disk when a draft already restored one — it may
-        // carry crop/adjust edits the saved sticker itself doesn't have yet.
-        if (stickerId != null && draft?.base == null) {
+        // carry crop/adjust edits the saved sticker itself doesn't have yet. An animated sticker
+        // opened in Animation mode is loaded further down (see "Editing an animation").
+        if (stickerId != null && draft?.base == null && !(isAnim && animated)) {
             val sticker = (ServiceLocator.customStickerRepository.stickers.value +
                 ServiceLocator.catalogRepository.catalogStickers).firstOrNull { it.id == stickerId }
             if (sticker != null) base = withContext(Dispatchers.IO) { BitmapUtils.loadBitmap(context, sticker) }
@@ -631,9 +637,10 @@ fun EditorScreen(nav: NavHostController, stickerId: String?, animated: Boolean) 
             pendingCrop = withContext(Dispatchers.IO) { BitmapUtils.loadUriBitmap(context, uri, 1024) }
         }
     }
-    val pickVideo = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-        if (uri != null) clipLoad?.cancel()
-        if (uri != null) clipLoad = scope.launch {
+    /** Makes [uri] the clip: reads its frames into the timeline (streamed — see previewFlow). */
+    fun startClip(uri: Uri) {
+        clipLoad?.cancel()
+        clipLoad = scope.launch {
             videoUri = uri
             resetBaseAdjust()
             // Decode the scrub strip once, here: the timeline and the frame preview both read
@@ -657,6 +664,47 @@ fun EditorScreen(nav: NavHostController, stickerId: String?, animated: Boolean) 
             }
             framesLoading = false
             if (clipFrames.isNotEmpty()) Toast.makeText(context, "Video added — trim it below, then tap ✓", Toast.LENGTH_SHORT).show()
+        }
+    }
+    val pickVideo = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        if (uri != null) startClip(uri)
+    }
+
+    // ---- Editing an animation ----
+    // An animated sticker opened with Edit comes in MOVING: an animated WebP as a canvas-filling
+    // animated layer (text, stickers and drawings go on top; saving re-makes the animation), an
+    // old .mp4 clip as the video. It used to open as a still first frame with the empty-canvas
+    // "Add a video" prompt sitting over it.
+    var editLoading by remember { mutableStateOf(false) }
+    var canvasSideDp by remember { mutableStateOf(0f) }
+    LaunchedEffect(stickerId) {
+        if (stickerId == null || !isAnim || !animated) return@LaunchedEffect
+        // Backing out mid-edit keeps a draft; that's the newer state, so don't load over it.
+        if (draft != null && (draft.items.isNotEmpty() || draft.videoUri != null)) return@LaunchedEffect
+        val sticker = (ServiceLocator.customStickerRepository.stickers.value +
+            ServiceLocator.catalogRepository.catalogStickers).firstOrNull { it.id == stickerId } ?: return@LaunchedEffect
+        editLoading = true
+        if (sticker.isVideoClip) {
+            val file = withContext(Dispatchers.IO) {
+                BitmapUtils.downloadBytes(context, sticker)?.let { bytes ->
+                    java.io.File(context.cacheDir, "edit_clip_${sticker.id.hashCode()}.mp4").apply { writeBytes(bytes) }
+                }
+            }
+            editLoading = false
+            if (file != null) startClip(Uri.fromFile(file))
+            else Toast.makeText(context, "Couldn't load this animation. Check your connection.", Toast.LENGTH_SHORT).show()
+            return@LaunchedEffect
+        }
+        val frames = withContext(Dispatchers.IO) {
+            BitmapUtils.downloadBytes(context, sticker)?.let { com.stickers.bank.util.AnimatedWebp.decode(it, maxSide = 512) }
+        }
+        // Sized to fill the canvas (less OverlayView's 4dp padding on each side).
+        val side = snapshotFlow { canvasSideDp }.first { it > 0f }
+        editLoading = false
+        if (frames != null) {
+            items.add(0, ImageItem(nextId++, frames.frames.first(), sizeDp = side - 8f, animation = frames))
+        } else {
+            Toast.makeText(context, "Couldn't load this animation. Check your connection.", Toast.LENGTH_SHORT).show()
         }
     }
     val takePhoto = rememberLauncherForActivityResult(ActivityResultContracts.TakePicturePreview()) { bmp ->
@@ -731,11 +779,14 @@ fun EditorScreen(nav: NavHostController, stickerId: String?, animated: Boolean) 
         val animatedItems = items.filterIsInstance<ImageItem>().filter { it.animation != null }
         if (uri == null && animatedItems.isEmpty()) return
         scope.launch {
+            saveProgress = 0f
             saving = true
             playing = false
             // Both, or the selection border / corner handles bake into the saved sticker.
             selectedId = null; baseSelected = false
             withFrameNanos { }; withFrameNanos { }
+            // Frames are most of the work; the last few percent are writing the file.
+            val onProgress: (Float) -> Unit = { saveProgress = it * 0.95f }
 
             /** [layer] as it looks with every animated sticker [timeMs] in — the same frames
              * that played on the canvas. Consecutive output frames that land on the same sticker
@@ -774,6 +825,7 @@ fun EditorScreen(nav: NavHostController, stickerId: String?, animated: Boolean) 
                         startMs = trimStartMs,
                         endMs = if (trimEndMs > trimStartMs) trimEndMs else Long.MAX_VALUE,
                         overlayAt = if (animatedItems.isEmpty()) null else { _, t -> captureAt(overlayLayer, t) },
+                        onProgress = onProgress,
                     )
                 }
             } else {
@@ -784,11 +836,12 @@ fun EditorScreen(nav: NavHostController, stickerId: String?, animated: Boolean) 
                 val longest = animatedItems.maxOf { it.animation?.durationMs ?: 0L }.coerceIn(500L, 4_000L)
                 val count = (longest / stepMs).toInt().coerceIn(2, 48)
                 withContext(Dispatchers.IO) {
-                    VideoToWebp.encodeTransparent(count, stepMs, frameAt = { _, t -> captureAt(graphicsLayer, t) })
+                    VideoToWebp.encodeTransparent(count, stepMs, frameAt = { _, t -> captureAt(graphicsLayer, t) }, onProgress = onProgress)
                 }
             }
             if (bytes == null) {
                 saving = false
+                saveProgress = null
                 Toast.makeText(context, "Couldn't make this animation. Try a shorter clip.", Toast.LENGTH_LONG).show()
                 return@launch
             }
@@ -797,8 +850,11 @@ fun EditorScreen(nav: NavHostController, stickerId: String?, animated: Boolean) 
                 file.writeBytes(bytes)
                 ServiceLocator.customStickerRepository.add(file, caption, tags, animated = true)
             }
+            saveProgress = 1f
+            withFrameNanos { }
             committed = true
             saving = false
+            saveProgress = null
             // Stay in the editor after saving (see saveSticker).
             Toast.makeText(context, "Animated sticker saved", Toast.LENGTH_SHORT).show()
         }
@@ -883,6 +939,7 @@ fun EditorScreen(nav: NavHostController, stickerId: String?, animated: Boolean) 
             // down — no -20dp margin, no side padding, so the square actually reaches the
             // true screen edges instead of floating in a 10dp gutter on each side.
             val side = minOf(maxWidth, maxHeight - 8.dp)
+            SideEffect { canvasSideDp = side.value }
 
             Box(
                 Modifier
@@ -996,7 +1053,12 @@ fun EditorScreen(nav: NavHostController, stickerId: String?, animated: Boolean) 
                 if (isAnim && videoUri == null) {
                     // Only while there's nothing at all — animated stickers, text or drawings on
                     // their own are an animation too, and this would cover them.
-                    if (items.isEmpty() && drawStrokes.isEmpty() && bgColor == null) {
+                    if (editLoading) {
+                        Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
+                            com.stickers.bank.ui.components.ZigZagSpinner(Modifier.size(54.dp))
+                            Text("Loading animation…", color = AppOnSurfaceMuted, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 10.dp))
+                        }
+                    } else if (items.isEmpty() && drawStrokes.isEmpty() && bgColor == null) {
                         AddPhotoPlaceholder(isVideo = true) { pickVideo.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly)) }
                     }
                 } else if (isAnim && base == null && framesLoading) {
@@ -1456,7 +1518,7 @@ fun EditorScreen(nav: NavHostController, stickerId: String?, animated: Boolean) 
             },
         )
     }
-    if (saving) SavingOverlay()
+    if (saving) SavingOverlay(saveProgress)
 }
 
 /**
@@ -1468,54 +1530,84 @@ fun EditorScreen(nav: NavHostController, stickerId: String?, animated: Boolean) 
  * can take a real few seconds. Blocks back-press and outside taps: nothing to cancel mid-write.
  */
 @Composable
-private fun SavingOverlay() {
+private fun SavingOverlay(progress: Float? = null) {
     Dialog(
         onDismissRequest = {},
         properties = DialogProperties(
             dismissOnBackPress = false, dismissOnClickOutside = false, usePlatformDefaultWidth = false,
         ),
     ) {
-        val infinite = rememberInfiniteTransition(label = "saving")
-        val spin by infinite.animateFloat(
-            initialValue = 0f, targetValue = 360f,
-            animationSpec = infiniteRepeatable(tween(2200, easing = LinearEasing)),
-            label = "spin",
-        )
-        // Eases up to a full lap then instantly resets — reads as the outline "completing"
-        // itself over and over, not a smooth continuous wobble.
-        val sweep by infinite.animateFloat(
-            initialValue = 0f, targetValue = 1f,
-            animationSpec = infiniteRepeatable(tween(1100, easing = LinearEasing), repeatMode = RepeatMode.Restart),
-            label = "sweep",
-        )
         Box(
             Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.4f)),
             contentAlignment = Alignment.Center,
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Box(
-                    Modifier.size(108.dp)
-                        .graphicsLayer { rotationZ = spin }
-                        .clip(RoundedCornerShape(24.dp))
-                        .background(Color.White.copy(alpha = 0.16f))
-                        .border(1.dp, Color.White.copy(alpha = 0.55f), RoundedCornerShape(24.dp)),
-                ) {
-                    Canvas(Modifier.fillMaxSize().padding(10.dp)) {
-                        val full = ComposePath().apply {
-                            addRoundRect(RoundRect(Rect(Offset.Zero, size), CornerRadius(14.dp.toPx())))
-                        }
-                        val measure = PathMeasure().apply { setPath(full, false) }
-                        val segment = ComposePath()
-                        measure.getSegment(0f, measure.length * sweep, segment, true)
-                        drawPath(segment, color = Gold, style = Stroke(width = 4.dp.toPx(), cap = StrokeCap.Round))
-                    }
-                }
+                if (progress != null) ProgressRing(progress) else SavingSpinner()
                 Spacer(Modifier.height(18.dp))
                 Text(
-                    "Saving…", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold,
-                    letterSpacing = 0.5.sp,
+                    if (progress != null) "Making your animation…" else "Saving…",
+                    color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp,
                 )
             }
+        }
+    }
+}
+
+/** A ring that fills as [progress] (0–1) does, with the percentage in the middle — for saves
+ * long enough to deserve one (an animation is encoded frame by frame). */
+@Composable
+private fun ProgressRing(progress: Float) {
+    // Eased toward each new value, so the ring glides between frames instead of jumping.
+    val shown by androidx.compose.animation.core.animateFloatAsState(
+        progress.coerceIn(0f, 1f), animationSpec = tween(260), label = "saveProgress",
+    )
+    Box(
+        Modifier.size(108.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.16f))
+            .border(1.dp, Color.White.copy(alpha = 0.55f), CircleShape),
+        contentAlignment = Alignment.Center,
+    ) {
+        Canvas(Modifier.fillMaxSize().padding(10.dp)) {
+            val stroke = 6.dp.toPx()
+            val inset = stroke / 2f
+            val arcSize = Size(size.width - stroke, size.height - stroke)
+            drawArc(Color.White.copy(alpha = 0.18f), 0f, 360f, false, Offset(inset, inset), arcSize, style = Stroke(stroke))
+            drawArc(Gold, -90f, 360f * shown, false, Offset(inset, inset), arcSize, style = Stroke(stroke, cap = StrokeCap.Round))
+        }
+        Text("${(shown * 100).roundToInt()}%", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Black)
+    }
+}
+
+/** The indeterminate version: a rounded square whose outline keeps drawing itself as it turns. */
+@Composable
+private fun SavingSpinner() {
+    val infinite = rememberInfiniteTransition(label = "saving")
+    val spin by infinite.animateFloat(
+        initialValue = 0f, targetValue = 360f,
+        animationSpec = infiniteRepeatable(tween(2200, easing = LinearEasing)),
+        label = "spin",
+    )
+    // Eases up to a full lap then instantly resets — reads as the outline "completing"
+    // itself over and over, not a smooth continuous wobble.
+    val sweep by infinite.animateFloat(
+        initialValue = 0f, targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(1100, easing = LinearEasing), repeatMode = RepeatMode.Restart),
+        label = "sweep",
+    )
+    Box(
+        Modifier.size(108.dp)
+            .graphicsLayer { rotationZ = spin }
+            .clip(RoundedCornerShape(24.dp))
+            .background(Color.White.copy(alpha = 0.16f))
+            .border(1.dp, Color.White.copy(alpha = 0.55f), RoundedCornerShape(24.dp)),
+    ) {
+        Canvas(Modifier.fillMaxSize().padding(10.dp)) {
+            val full = ComposePath().apply {
+                addRoundRect(RoundRect(Rect(Offset.Zero, size), CornerRadius(14.dp.toPx())))
+            }
+            val measure = PathMeasure().apply { setPath(full, false) }
+            val segment = ComposePath()
+            measure.getSegment(0f, measure.length * sweep, segment, true)
+            drawPath(segment, color = Gold, style = Stroke(width = 4.dp.toPx(), cap = StrokeCap.Round))
         }
     }
 }

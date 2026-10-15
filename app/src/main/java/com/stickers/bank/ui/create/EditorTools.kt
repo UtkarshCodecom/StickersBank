@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.layout.width
@@ -221,7 +222,11 @@ fun EditableBase(
         val hDp = with(density) { (fitH * scaleY).toDp() }
 
         var mod = Modifier
-            .size(wDp, hDp)
+            // requiredSize, not size: zoomed past the canvas, `size` capped the long side at the
+            // canvas edge while the short side kept growing — so a portrait photo stretched
+            // sideways instead of scaling. Now the photo keeps its shape and the canvas just
+            // crops what spills over.
+            .requiredSize(wDp, hDp)
             .graphicsLayer {
                 translationX = offset.x
                 translationY = offset.y

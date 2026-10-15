@@ -80,12 +80,9 @@ object StickerExporter {
         name: String,
         stickers: List<Sticker>,
         animated: Boolean = false,
-        /** Fixed identifier (the singles pack); null = a new pack for this exact selection. */
-        identifier: String? = null,
-        padToMinimum: Boolean = false,
     ): PackBuilder.Result? {
-        if (stickers.isEmpty() || (!padToMinimum && stickers.size < PackBuilder.MIN_STICKERS)) return null
-        return PackBuilder.build(context, name, stickers, animated = animated, identifier = identifier, padToMinimum = padToMinimum)
+        if (stickers.size < PackBuilder.MIN_STICKERS) return null
+        return PackBuilder.build(context, name, stickers, animated = animated)
     }
 
     /** Must be launched on the main thread, ideally for-result. */
@@ -150,6 +147,26 @@ object StickerExporter {
             putExtra(Intent.EXTRA_STREAM, uri)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             if (targetPackage != null) setPackage(targetPackage)
+        }
+    }
+
+    /**
+     * One sticker straight into a WhatsApp chat (WhatsApp then asks which chat). Still stickers
+     * go as a 512² webp; an animated one as its original animated webp, so it keeps moving.
+     */
+    fun stickerToChatIntent(context: Context, sticker: Sticker, whatsAppPackage: String): Intent? {
+        val file = if (sticker.isAnimatedSticker) {
+            BitmapUtils.downloadBytes(context, sticker)?.let { bytes ->
+                File(File(context.cacheDir, "share").apply { mkdirs() }, "${sticker.id}_anim.webp").apply { writeBytes(bytes) }
+            }
+        } else {
+            BitmapUtils.exportShareableWebp(context, sticker)
+        } ?: return null
+        return Intent(Intent.ACTION_SEND).apply {
+            type = "image/webp"
+            putExtra(Intent.EXTRA_STREAM, uriFor(context, file))
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            setPackage(whatsAppPackage)
         }
     }
 

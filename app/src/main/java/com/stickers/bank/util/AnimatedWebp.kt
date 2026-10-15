@@ -37,10 +37,11 @@ object AnimatedWebp {
 
     private class Anmf(val x: Int, val y: Int, val w: Int, val h: Int, val durationMs: Int, val noBlend: Boolean, val dispose: Boolean, val data: ByteArray)
 
-    /** Null when [bytes] isn't an animated WebP (or nothing in it could be decoded). */
-    fun decode(bytes: ByteArray): Frames? = runCatching { decodeOrThrow(bytes) }.getOrNull()
+    /** Null when [bytes] isn't an animated WebP (or nothing in it could be decoded). Frames are
+     * kept at most [maxSide] px — full 512 when the animation itself is what's being edited. */
+    fun decode(bytes: ByteArray, maxSide: Int = MAX_SIDE): Frames? = runCatching { decodeOrThrow(bytes, maxSide) }.getOrNull()
 
-    private fun decodeOrThrow(b: ByteArray): Frames? {
+    private fun decodeOrThrow(b: ByteArray, maxSide: Int): Frames? {
         if (b.size < 30 || tag(b, 0) != "RIFF" || tag(b, 8) != "WEBP") return null
         var canvasW = 0
         var canvasH = 0
@@ -72,7 +73,7 @@ object AnimatedWebp {
         val count = ceil(total / STEP_MS.toDouble()).toInt().coerceIn(1, MAX_FRAMES)
         val frameMs = (total / count).coerceAtLeast(1)
 
-        val scale = minOf(1f, MAX_SIDE.toFloat() / maxOf(canvasW, canvasH))
+        val scale = minOf(1f, maxSide.toFloat() / maxOf(canvasW, canvasH))
         val outW = (canvasW * scale).toInt().coerceAtLeast(1)
         val outH = (canvasH * scale).toInt().coerceAtLeast(1)
 

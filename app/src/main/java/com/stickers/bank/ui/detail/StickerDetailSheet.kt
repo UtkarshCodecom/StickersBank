@@ -239,8 +239,8 @@ fun StickerDetailSheet(
                             if (current.isVideoClip) {
                                 gifShare(listOf(current))
                             } else {
-                                // Straight into the running "Stickers Bank" pack in WhatsApp — every
-                                // single sticker joins that same pack, now or days later.
+                                // One sticker can't be a WhatsApp pack (packs need 3), so it goes
+                                // straight into a chat instead.
                                 sendSingle(current)
                             }
                         }

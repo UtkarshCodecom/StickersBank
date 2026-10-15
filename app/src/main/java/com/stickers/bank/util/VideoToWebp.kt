@@ -176,6 +176,8 @@ object VideoToWebp {
         /** The overlay for output frame `index`, `timeMs` into the sticker — for overlays that
          * move (animated stickers on top of the clip). Wins over [overlay] when it returns one. */
         overlayAt: (suspend (index: Int, timeMs: Long) -> Bitmap?)? = null,
+        /** 0–1 as frames are done. */
+        onProgress: (Float) -> Unit = {},
     ): ByteArray? {
         val mmr = MediaMetadataRetriever()
         val frames = ArrayList<ByteArray>() // each = a full `VP8 ` sub-chunk (incl. padding)
@@ -206,6 +208,7 @@ object VideoToWebp {
                 val still = compressWebp(square, QUALITY)
                 square.recycle()
                 extractBitstreamChunk(still)?.let { frames.add(it) }
+                onProgress((i + 1f) / count)
             }
         } catch (e: Exception) {
             return null
@@ -237,12 +240,17 @@ object VideoToWebp {
         frameMs: Int,
         frameAt: suspend (index: Int, timeMs: Long) -> Bitmap?,
         maxBytes: Int = 500_000,
+        /** 0–1 as frames are done. */
+        onProgress: (Float) -> Unit = {},
     ): ByteArray? {
         val frames = ArrayList<ByteArray>()
         for (i in 0 until count) {
-            val bmp = frameAt(i, i.toLong() * frameMs) ?: continue
-            val square = if (bmp.width == SIZE && bmp.height == SIZE) bmp else BitmapUtils.fitSquare(bmp, SIZE)
-            extractFrameData(compressWebp(square, QUALITY))?.let { frames.add(it) }
+            val bmp = frameAt(i, i.toLong() * frameMs)
+            if (bmp != null) {
+                val square = if (bmp.width == SIZE && bmp.height == SIZE) bmp else BitmapUtils.fitSquare(bmp, SIZE)
+                extractFrameData(compressWebp(square, QUALITY))?.let { frames.add(it) }
+            }
+            onProgress((i + 1f) / count)
         }
         if (frames.isEmpty()) return null
         var keep: List<ByteArray> = frames
