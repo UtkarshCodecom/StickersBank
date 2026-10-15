@@ -1,0 +1,32 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- The in-app theme picker (Neu.kt) is independent of the OS's light/dark setting, so this
+         just mirrors the base theme rather than switching to something darker — see the
+         sb_background comment in colors.xml. -->
+    <style name="Theme.StickersBank" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/sb_background</item>
+        <item name="android:statusBarColor">@color/sb_background</item>
+        <item name="android:navigationBarColor">@color/sb_background</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:colorBackground">@color/sb_background</item>
+    </style>
+
+    <!-- System splash (Android 12+ natively, core-splashscreen on older versions) for
+         SplashActivity: plain black with a transparent icon, so nothing flashes before
+         SplashLogoView's own animation starts on the same black. -->
+    <style name="Theme.StickersBank.Starting" parent="Theme.SplashScreen">
+        <item name="android:windowBackground">@android:color/black</item>
+        <item name="windowSplashScreenBackground">@android:color/black</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/splash_blank</item>
+        <item name="postSplashScreenTheme">@style/Theme.StickersBank.Splash</item>
+    </style>
+
+    <!-- SplashActivity once the system splash hands off: black, fullscreen, no title bar. -->
+    <style name="Theme.StickersBank.Splash" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@android:color/black</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowFullscreen">true</item>
+        <item name="android:statusBarColor">@android:color/black</item>
+        <item name="android:navigationBarColor">@android:color/black</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+</resources>

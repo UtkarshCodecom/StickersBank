@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+
+    <!-- Stickers Bank palette. sb_background must match NeoPalettes.Classic.bg (Neu.kt) — the
+         app's default neumorphic theme — since it's also the platform SplashScreen's background
+         and the base window background seen for a moment before Compose (and the theme picker)
+         ever runs. Left mismatched (this used to be a dark theme before the light neumorphic
+         redesign), it shows as a jarring dark flash before the actual app appears. -->
+    <color name="sb_background">#FFE9EDF3</color>
+    <color name="sb_surface">#FF17171E</color>
+    <color name="sb_gold">#FFF5B301</color>
+</resources>

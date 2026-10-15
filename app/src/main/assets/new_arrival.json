@@ -1,0 +1,32 @@
+{
+  "stickers": [
+    {
+      "id": 1,
+      "name": "Love"
+    },
+    {
+      "id": 2,
+      "name": "Wow"
+    },
+    {
+      "id": 3,
+      "name": "Sad"
+    },
+    {
+      "id": 4,
+      "name": "Smiles"
+    },
+    {
+      "id": 5,
+      "name": "Emojis"
+    },
+    {
+      "id": 6,
+      "name": "Funny"
+    },
+    {
+      "id": 7,
+      "name": "Kiss"
+    }
+  ]
+}

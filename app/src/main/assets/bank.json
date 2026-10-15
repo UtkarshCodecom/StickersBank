@@ -1,0 +1,34 @@
+{
+  "bank": [
+    {
+      "id": 1,
+      "name": "God 1",
+      "sticker_url": "https://firebasestorage.googleapis.com/v0/b/homeproduct-48e68.appspot.com/o/Stickers%2FSatKaival%2FSatKaival_1.webp?alt=media&token=c236056f-bca7-45fd-8523-9668813e2720"
+    },
+    {
+      "id": 2,
+      "name": "God 2",
+      "sticker_url": "https://firebasestorage.googleapis.com/v0/b/homeproduct-48e68.appspot.com/o/Stickers%2FSatKaival%2FSatKaival_2.webp?alt=media&token=bfc73596-c087-452b-aa68-c5309ae7060b"
+    },
+    {
+      "id": 3,
+      "name": "God 3",
+      "sticker_url": "https://firebasestorage.googleapis.com/v0/b/homeproduct-48e68.appspot.com/o/Stickers%2FSatKaival%2FSatKaival_3.webp?alt=media&token=5f859d33-4a09-47c9-96e1-9c9d785e7863"
+    },
+    {
+      "id": 4,
+      "name": "God 4",
+      "sticker_url": "https://firebasestorage.googleapis.com/v0/b/homeproduct-48e68.appspot.com/o/Stickers%2FSatKaival%2FSatKaival_4.webp?alt=media&token=3bc5c3a2-1e7b-41be-8f16-69dcdbf1f25d"
+    },
+    {
+      "id": 5,
+      "name": "God 5",
+      "sticker_url": "https://firebasestorage.googleapis.com/v0/b/homeproduct-48e68.appspot.com/o/Stickers%2FSatKaival%2FSatKaival_5.webp?alt=media&token=5b1f2ee1-f4ce-46a5-88c4-c68c65bb1da5"
+    },
+    {
+      "id": 6,
+      "name": "God 6",
+      "sticker_url": "https://firebasestorage.googleapis.com/v0/b/homeproduct-48e68.appspot.com/o/Stickers%2FSatKaival%2FSatKaival_6.webp?alt=media&token=e5feda18-d8d6-41fb-b947-6a7ff628fe94"
+    }
+  ]
+}

@@ -1,0 +1,39 @@
+# Gradle / build output
+.gradle/
+.kotlin/
+build/
+app/build/
+app/release/
+captures/
+.externalNativeBuild/
+.cxx/
+*.apk
+*.aab
+
+# Machine-local settings and secrets (R2 keys live in local.properties)
+local.properties
+
+# Signing keys — never commit
+*.jks
+*.keystore
+*.pepk
+
+# IDE / OS
+.idea/
+*.iml
+.DS_Store
+
+# Claude Code local settings
+.claude/settings.local.json
+
+# Local-only material, not needed to build
+backup-*/
+ZextraFiles/
+admin-web.zip
+# 161MB reference sticker library — excluded from the APK too (see app/build.gradle)
+app/src/main/assets/sticker_img/
+
+# Admin web
+admin-web/node_modules/
+admin-web/dist/
+admin-web/.env

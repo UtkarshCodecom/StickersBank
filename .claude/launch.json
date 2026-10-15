@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "admin-web",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--prefix", "admin-web"],
+      "port": 5173
+    },
+    {
+      "name": "admin-web-vite-only",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": ["-c", "cd admin-web && npx vite"],
+      "port": 5173
+    }
+  ]
+}

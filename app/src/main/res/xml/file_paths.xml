@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <cache-path
+        name="cache"
+        path="." />
+    <cache-path name="share_cache" path="share/" />
+    <files-path name="custom_stickers" path="custom_stickers/" />
+    <files-path name="wa_packs" path="wa_packs/" />
+</paths>
