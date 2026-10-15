@@ -1198,8 +1198,11 @@ private fun CanvasTemplateEditorContent(
             onSticker = { sticker: Sticker ->
                 scope.launch {
                     val bmp = withContext(Dispatchers.IO) { BitmapUtils.loadBitmap(context, sticker) }
-                    if (bmp != null) addStickerOverlay(bmp)
-                    else Toast.makeText(context, "Couldn't load that sticker.", Toast.LENGTH_SHORT).show()
+                    if (bmp != null) {
+                        // Through the crop step first (crop, remove background, flip, or skip).
+                        cropTarget = CropTarget.NewOverlay
+                        pendingCrop = bmp
+                    } else Toast.makeText(context, "Couldn't load that sticker.", Toast.LENGTH_SHORT).show()
                     showPicker = false
                 }
             },

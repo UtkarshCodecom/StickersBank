@@ -1581,8 +1581,12 @@ fun EditorScreen(nav: NavHostController, stickerId: String?, animated: Boolean) 
                         items.add(i); selectedId = i.id; tab = EditorTab.LAYER
                     } else {
                         val bmp = withContext(Dispatchers.IO) { BitmapUtils.loadBitmap(context, sticker) }
-                        if (bmp != null) addStickerOverlay(bmp)
-                        else Toast.makeText(context, "Couldn't load that sticker. Check your connection.", Toast.LENGTH_SHORT).show()
+                        if (bmp != null) {
+                            // Through the crop step first, same as a photo: crop, remove the
+                            // background, flip — or "Skip crop" to drop it on as it is.
+                            cropTarget = CropTarget.NewOverlay
+                            pendingCrop = bmp
+                        } else Toast.makeText(context, "Couldn't load that sticker. Check your connection.", Toast.LENGTH_SHORT).show()
                     }
                     showPicker = false
                 }
