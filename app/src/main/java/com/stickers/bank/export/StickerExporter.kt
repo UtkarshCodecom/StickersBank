@@ -80,10 +80,31 @@ object StickerExporter {
         name: String,
         stickers: List<Sticker>,
         animated: Boolean = false,
+        /** Fixed identifier (the growing "Stickers Bank" pack); null = a new pack for this selection. */
+        identifier: String? = null,
     ): PackBuilder.Result? {
         if (stickers.size < PackBuilder.MIN_STICKERS) return null
-        return PackBuilder.build(context, name, stickers, animated = animated)
+        return PackBuilder.build(context, name, stickers, animated = animated, identifier = identifier)
     }
+
+    /**
+     * True when [whatsAppPackage] already has our pack [identifier] — WhatsApp's own check
+     * (its sticker_whitelist_check provider, from the official sticker sample). Its add screen
+     * has nothing to offer for a pack that's already there; an updated one refreshes by itself.
+     * Blocking IPC: call off the main thread.
+     */
+    fun isPackAdded(context: Context, whatsAppPackage: String, identifier: String): Boolean = runCatching {
+        val authority = "$whatsAppPackage.provider.sticker_whitelist_check"
+        context.packageManager.resolveContentProvider(authority, android.content.pm.PackageManager.GET_META_DATA)
+            ?: return false
+        val uri = Uri.Builder().scheme("content").authority(authority).appendPath("is_whitelisted")
+            .appendQueryParameter("authority", WHATSAPP_AUTHORITY)
+            .appendQueryParameter("identifier", identifier)
+            .build()
+        context.contentResolver.query(uri, null, null, null, null)?.use { c ->
+            c.moveToFirst() && c.getInt(c.getColumnIndexOrThrow("result")) == 1
+        } ?: false
+    }.getOrDefault(false)
 
     /** Must be launched on the main thread, ideally for-result. */
     fun whatsAppAddPackIntent(pack: WaStickerPack, whatsAppPackage: String): Intent =
@@ -147,26 +168,6 @@ object StickerExporter {
             putExtra(Intent.EXTRA_STREAM, uri)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             if (targetPackage != null) setPackage(targetPackage)
-        }
-    }
-
-    /**
-     * One sticker straight into a WhatsApp chat (WhatsApp then asks which chat). Still stickers
-     * go as a 512² webp; an animated one as its original animated webp, so it keeps moving.
-     */
-    fun stickerToChatIntent(context: Context, sticker: Sticker, whatsAppPackage: String): Intent? {
-        val file = if (sticker.isAnimatedSticker) {
-            BitmapUtils.downloadBytes(context, sticker)?.let { bytes ->
-                File(File(context.cacheDir, "share").apply { mkdirs() }, "${sticker.id}_anim.webp").apply { writeBytes(bytes) }
-            }
-        } else {
-            BitmapUtils.exportShareableWebp(context, sticker)
-        } ?: return null
-        return Intent(Intent.ACTION_SEND).apply {
-            type = "image/webp"
-            putExtra(Intent.EXTRA_STREAM, uriFor(context, file))
-            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            setPackage(whatsAppPackage)
         }
     }
 

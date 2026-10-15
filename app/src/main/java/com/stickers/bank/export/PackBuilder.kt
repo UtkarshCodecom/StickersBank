@@ -76,7 +76,8 @@ object PackBuilder {
      * [MIN_STICKERS] usable stickers were produced.
      *
      * Every distinct selection becomes a NEW pack (see [identifierFor]) — adding stickers never
-     * overwrites a pack that's already in WhatsApp.
+     * overwrites a pack that's already in WhatsApp. Only the "Stickers Bank" pack (SinglesPack)
+     * passes a fixed [identifier], because growing that one pack is the point of it.
      */
     fun build(
         context: Context,
@@ -84,15 +85,19 @@ object PackBuilder {
         stickers: List<Sticker>,
         publisher: String = "Stickers Bank",
         animated: Boolean = false,
+        identifier: String? = null,
     ): Result? {
         val chosen = stickers.distinctBy { it.id }.take(MAX_STICKERS)
-        val id = identifierFor(name, chosen, animated)
-        val packName = uniqueName(context, name.ifBlank { "Stickers Bank" }, id).take(120)
+        val id = identifier ?: identifierFor(name, chosen, animated)
+        val packName = (if (identifier != null) name else uniqueName(context, name.ifBlank { "Stickers Bank" }, id)).take(120)
 
         // The same selection sent again: the pack is already built (and may well be in WhatsApp
-        // already), so hand over what's there instead of re-downloading everything.
-        WaPackStore.load(context, id)?.let { existing ->
-            if (!existing.avoidCache && WaPackStore.isServeable(context, existing)) return Result(existing, 0)
+        // already), so hand over what's there instead of re-downloading everything. (A fixed-
+        // identifier pack changes content under the same id, so it's always rebuilt.)
+        if (identifier == null) {
+            WaPackStore.load(context, id)?.let { existing ->
+                if (!existing.avoidCache && WaPackStore.isServeable(context, existing)) return Result(existing, 0)
+            }
         }
 
         val dir = WaPackStore.packDir(context, id)

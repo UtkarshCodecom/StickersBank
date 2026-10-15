@@ -239,8 +239,8 @@ fun StickerDetailSheet(
                             if (current.isVideoClip) {
                                 gifShare(listOf(current))
                             } else {
-                                // One sticker can't be a WhatsApp pack (packs need 3), so it goes
-                                // straight into a chat instead.
+                                // One sticker can't be a WhatsApp pack (packs need 3): it waits in
+                                // the "Stickers Bank" bank until there are 3, then goes as a pack.
                                 sendSingle(current)
                             }
                         }

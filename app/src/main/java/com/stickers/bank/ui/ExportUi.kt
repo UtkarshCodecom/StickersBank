@@ -22,6 +22,7 @@ import androidx.core.content.FileProvider
 import com.stickers.bank.data.ServiceLocator
 import com.stickers.bank.data.model.Sticker
 import com.stickers.bank.export.PackBuilder
+import com.stickers.bank.export.SinglesPack
 import com.stickers.bank.export.WaStickerPack
 import com.stickers.bank.ui.components.PreparingPopup
 import com.stickers.bank.export.StickerExporter
@@ -39,6 +40,8 @@ private data class PackRequest(
     val name: String,
     val stickers: List<Sticker>,
     val animated: Boolean,
+    /** Fixed identifier — only the growing "Stickers Bank" pack has one; null = a new pack. */
+    val identifier: String? = null,
     /** For Analytics: how it was sent, and which stickers count as sent. */
     val via: String = "whatsapp",
     val sentIds: List<String> = stickers.map { it.id },
@@ -55,7 +58,7 @@ private fun rememberWhatsAppPackSender(): (List<PackRequest>) -> Unit {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     // Built packs still waiting for their turn in WhatsApp's add screen, and which WhatsApp.
-    val queue = remember { ArrayDeque<Pair<PackRequest, WaStickerPack>>() }
+    val queue = remember { ArrayDeque<QueuedPack>() }
     var queueTarget by remember { mutableStateOf(StickerExporter.WHATSAPP) }
     var queueTotal by remember { mutableStateOf(0) }
     var launchNext: () -> Unit = {}
@@ -72,8 +75,20 @@ private fun rememberWhatsAppPackSender(): (List<PackRequest>) -> Unit {
         }
     }
     launchNext = launch@{
-        val (req, pack) = queue.removeFirstOrNull() ?: return@launch
+        val (req, pack, alreadyAdded) = queue.removeFirstOrNull() ?: return@launch
         val number = queueTotal - queue.size
+        if (alreadyAdded) {
+            // WhatsApp already has this pack: its add screen would have nothing to do. A grown
+            // "Stickers Bank" pack picks up its new stickers there by itself.
+            toast(
+                context,
+                if (req.identifier != null) "Added to “${pack.name}” in WhatsApp — it shows up there in a moment."
+                else "“${pack.name}” is already in WhatsApp.",
+            )
+            ServiceLocator.analytics.stickersSent(req.via, req.sentIds)
+            launchNext()
+            return@launch
+        }
         if (queueTotal > 1) toast(context, "Pack $number of $queueTotal: “${pack.name}”")
         try {
             launcher.launch(StickerExporter.whatsAppAddPackIntent(pack, queueTarget))
@@ -97,11 +112,15 @@ private fun rememberWhatsAppPackSender(): (List<PackRequest>) -> Unit {
                 // the ad is closed and the packs are ready.
                 val adClosed = CompletableDeferred<Unit>()
                 com.stickers.bank.ads.Ads.show(activity) { adClosed.complete(Unit) }
-                val built = ArrayList<Pair<PackRequest, WaStickerPack>>()
+                val built = ArrayList<QueuedPack>()
                 var notAdded = 0
                 val mixed = reqs.map { it.animated }.distinct().size > 1
                 for ((i, req) in reqs.withIndex()) {
-                    preparing = (if (reqs.size > 1) "Preparing pack ${i + 1} of ${reqs.size}…" else "Preparing your stickers…") to when {
+                    preparing = when {
+                        reqs.size > 1 -> "Preparing pack ${i + 1} of ${reqs.size}…"
+                        req.identifier != null -> "Adding to “${req.name}”…"
+                        else -> "Preparing your stickers…"
+                    } to when {
                         mixed -> "WhatsApp keeps animated and still stickers in separate packs, so they're added as ${reqs.size} packs."
                         reqs.size > 1 -> "WhatsApp packs hold up to ${PackBuilder.MAX_STICKERS} stickers, so these are added as ${reqs.size} packs."
                         stillsOfAnimated(req) -> "WhatsApp can't mix animated and still stickers in one pack — the animated ones go in as stills."
@@ -109,7 +128,8 @@ private fun rememberWhatsAppPackSender(): (List<PackRequest>) -> Unit {
                     }
                     val result = try {
                         withContext(Dispatchers.IO) {
-                            StickerExporter.buildWhatsAppPack(context, req.name, req.stickers, animated = req.animated)
+                            StickerExporter.buildWhatsAppPack(context, req.name, req.stickers, animated = req.animated, identifier = req.identifier)
+                                ?.let { it to StickerExporter.isPackAdded(context, pkg, it.pack.identifier) }
                         }
                     } catch (e: kotlinx.coroutines.CancellationException) {
                         preparing = null
@@ -119,7 +139,11 @@ private fun rememberWhatsAppPackSender(): (List<PackRequest>) -> Unit {
                         null // reported just below, like any other pack that couldn't be built
                     }
                     if (result == null) notAdded += req.sentIds.size
-                    else { built += req to result.pack; notAdded += result.skipped }
+                    else {
+                        val (pack, alreadyAdded) = result
+                        built += QueuedPack(req, pack.pack, alreadyAdded)
+                        notAdded += pack.skipped
+                    }
                 }
                 adClosed.await()
                 preparing = null
@@ -168,27 +192,31 @@ private fun rememberWhatsAppPackSender(): (List<PackRequest>) -> Unit {
     }
 }
 
+/** A built pack waiting for WhatsApp's add screen; [alreadyAdded] = WhatsApp has it already. */
+private data class QueuedPack(val req: PackRequest, val pack: WaStickerPack, val alreadyAdded: Boolean)
+
 /**
  * Returns (packName, stickers) -> installs those stickers in WhatsApp as NEW pack(s) named
  * after [packName] — never replacing a pack added before (see PackBuilder.identifierFor).
  *
  * WhatsApp's own rules decide the rest:
- *  - a pack needs at least [PackBuilder.MIN_STICKERS] stickers, so fewer than that is refused
- *    with a note to pick more (nothing is padded with filler stickers);
+ *  - a pack needs at least [PackBuilder.MIN_STICKERS] stickers, so 1–2 go into the
+ *    "Stickers Bank" bank instead and reach WhatsApp once there are enough (see
+ *    [rememberSingleStickerToWhatsApp]); nothing is padded with filler stickers;
  *  - a pack holds at most [PackBuilder.MAX_STICKERS], so a big selection is split evenly;
  *  - a pack is all-still or all-animated: a selection with enough of BOTH becomes a still pack
  *    and an animated one, otherwise it all goes in as stills (animations show their first frame).
  */
 @Composable
 fun rememberPackExporter(): (String, List<Sticker>) -> Unit {
-    val context = LocalContext.current
     val sender = rememberWhatsAppPackSender()
+    val toBank = rememberSinglesSender(sender)
     return { name, stickers ->
-        val count = stickers.distinctBy { it.id }.size
-        if (count in 1 until PackBuilder.MIN_STICKERS) {
-            toast(context, "Pick at least ${PackBuilder.MIN_STICKERS} stickers — WhatsApp packs need ${PackBuilder.MIN_STICKERS} or more.")
-        } else {
-            sender(packRequests(name, stickers))
+        val unique = stickers.distinctBy { it.id }
+        when {
+            unique.isEmpty() -> Unit
+            unique.size < PackBuilder.MIN_STICKERS -> toBank(unique)
+            else -> sender(packRequests(name, unique))
         }
     }
 }
@@ -220,49 +248,50 @@ private fun packRequests(name: String, stickers: List<Sticker>): List<PackReques
 private fun stillsOfAnimated(req: PackRequest) = !req.animated && req.stickers.any { it.isAnimatedSticker }
 
 /**
- * Returns (sticker) -> sends ONE sticker straight into a WhatsApp chat. A single sticker can't
- * be a pack (WhatsApp needs [PackBuilder.MIN_STICKERS]), so it goes the way a sticker is sent
- * from the gallery: WhatsApp opens its chat picker with it. Animated stickers go as their
- * original file, so they keep moving.
+ * Returns (sticker) -> sends ONE sticker towards WhatsApp. One sticker can't be a pack (WhatsApp
+ * needs [PackBuilder.MIN_STICKERS]), so it's kept in the "Stickers Bank" bank; once that holds 3
+ * of its kind, WhatsApp's add screen opens for the "Stickers Bank" pack, and every sticker sent
+ * after that joins the same pack (see [SinglesPack]).
  */
 @Composable
 fun rememberSingleStickerToWhatsApp(): (Sticker) -> Unit {
+    val toBank = rememberSinglesSender(rememberWhatsAppPackSender())
+    return { sticker -> toBank(listOf(sticker)) }
+}
+
+/** (stickers) -> files fewer-than-a-pack stickers into the "Stickers Bank" bank and sends the
+ * "Stickers Bank" pack(s) that now have enough; says how many more are needed otherwise. */
+@Composable
+private fun rememberSinglesSender(sender: (List<PackRequest>) -> Unit): (List<Sticker>) -> Unit {
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {}
-    var chooseTargetFor by remember { mutableStateOf<Sticker?>(null) }
-
-    val send: (Sticker, String) -> Unit = { sticker, pkg ->
-        scope.launch {
-            val intent = withContext(Dispatchers.IO) { StickerExporter.stickerToChatIntent(context, sticker, pkg) }
-            if (intent == null) {
-                toast(context, "Couldn't prepare this sticker.")
-                return@launch
+    return { stickers ->
+        if (StickerExporter.whatsAppPackages(context).isEmpty()) {
+            toast(context, "WhatsApp is not installed.")
+        } else if (stickers.isNotEmpty()) {
+            val bank = stickers.map { ServiceLocator.bankRepository.addToSinglesPack(it) }.last()
+            val targets = stickers.map { SinglesPack.targetFor(bank.stickers, it) }.distinctBy { it.identifier }
+            val (ready, short) = targets.partition { it.stickers.size >= PackBuilder.MIN_STICKERS }
+            short.firstOrNull()?.let { t ->
+                val need = PackBuilder.MIN_STICKERS - t.stickers.size
+                val kind = if (t.animated) " animated" else ""
+                Toast.makeText(
+                    context,
+                    "Saved in your “${SinglesPack.NAME}” bank (${t.stickers.size} of ${PackBuilder.MIN_STICKERS}$kind). " +
+                        "Add $need more$kind and it goes to WhatsApp as a pack.",
+                    Toast.LENGTH_LONG,
+                ).show()
             }
-            try {
-                launcher.launch(intent)
-                ServiceLocator.analytics.stickersSent("whatsappSingle", listOf(sticker.id))
-                ServiceLocator.ratePrompt.stickersSent()
-            } catch (e: Exception) {
-                toast(context, "Couldn't open WhatsApp.")
+            if (ready.isNotEmpty()) {
+                sender(
+                    ready.map { t ->
+                        val ids = t.stickers.map { it.id }.toSet()
+                        PackRequest(
+                            t.name, t.stickers, animated = t.animated, identifier = t.identifier,
+                            via = "whatsappSingle", sentIds = stickers.map { it.id }.filter { it in ids },
+                        )
+                    },
+                )
             }
-        }
-        Unit
-    }
-
-    chooseTargetFor?.let { sticker ->
-        WhatsAppTargetDialog(
-            onPick = { pkg -> chooseTargetFor = null; send(sticker, pkg) },
-            onDismiss = { chooseTargetFor = null },
-        )
-    }
-
-    return { sticker ->
-        val targets = StickerExporter.whatsAppPackages(context)
-        when {
-            targets.isEmpty() -> toast(context, "WhatsApp is not installed.")
-            targets.size == 1 -> send(sticker, targets.first())
-            else -> chooseTargetFor = sticker
         }
     }
 }
