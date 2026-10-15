@@ -42,8 +42,9 @@ private data class PackRequest(
     val animated: Boolean,
     /** Fixed identifier — only the growing "Stickers Bank" pack has one; null = a new pack. */
     val identifier: String? = null,
-    /** Open WhatsApp's add screen even if WhatsApp reports the pack as added — the moment the
-     * "Stickers Bank" pack first reaches 3 is when the user expects to see WhatsApp. */
+    /** Open WhatsApp even if it reports the pack as already added. The "Stickers Bank" pack
+     * does this on every send: each new sticker changes the pack, and the user expects to see
+     * WhatsApp take it, not just a note in this app. */
     val showAddScreen: Boolean = false,
     /** For Analytics: how it was sent, and which stickers count as sent. */
     val via: String = "whatsapp",
@@ -72,7 +73,7 @@ private fun rememberWhatsAppPackSender(): (List<PackRequest>) -> Unit {
         if (error != null) {
             Toast.makeText(
                 context,
-                if (error.contains("already", ignoreCase = true)) "This pack is already in WhatsApp — new stickers show up there in a moment."
+                if (error.contains("already", ignoreCase = true)) "This pack is already in WhatsApp — the new stickers show up in it shortly."
                 else "WhatsApp couldn't add the pack: $error",
                 Toast.LENGTH_LONG,
             ).show()
@@ -258,8 +259,8 @@ private fun stillsOfAnimated(req: PackRequest) = !req.animated && req.stickers.a
 /**
  * Returns (sticker) -> sends ONE sticker towards WhatsApp. One sticker can't be a pack (WhatsApp
  * needs [PackBuilder.MIN_STICKERS]), so it's kept in the "Stickers Bank" bank; once that holds 3
- * of its kind, WhatsApp's add screen opens for the "Stickers Bank" pack, and every sticker sent
- * after that joins the same pack (see [SinglesPack]).
+ * of its kind, WhatsApp opens with the "Stickers Bank" pack — and again for every sticker sent
+ * after that, each one joining the same pack (see [SinglesPack]).
  */
 @Composable
 fun rememberSingleStickerToWhatsApp(): (Sticker) -> Unit {
@@ -295,8 +296,9 @@ private fun rememberSinglesSender(sender: (List<PackRequest>) -> Unit): (List<St
                         val ids = t.stickers.map { it.id }.toSet()
                         PackRequest(
                             t.name, t.stickers, animated = t.animated, identifier = t.identifier,
-                            // Just reached 3 → this is the "now it goes to WhatsApp" moment.
-                            showAddScreen = t.stickers.size == PackBuilder.MIN_STICKERS,
+                            // Every send from 3 on goes to WhatsApp: the first time to add the
+                            // pack, after that so WhatsApp picks up the pack with the new sticker.
+                            showAddScreen = true,
                             via = "whatsappSingle", sentIds = stickers.map { it.id }.filter { it in ids },
                         )
                     },
