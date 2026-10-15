@@ -283,6 +283,14 @@ class ImageItem(
         if (w >= h) { widthDp = sizeDp; heightDp = sizeDp * h / w }
         else { heightDp = sizeDp; widthDp = sizeDp * w / h }
     }
+    /** After a re-crop changes the picture's shape: the box takes the new w/h ratio, keeping its
+     * current longer side, so the layer stays the size it was instead of stretching. */
+    fun refitTo(bmp: Bitmap) {
+        val w = bmp.width.toFloat(); val h = bmp.height.toFloat()
+        if (w <= 0f || h <= 0f) return
+        val long = maxOf(widthDp, heightDp)
+        if (w >= h) { widthDp = long; heightDp = long * h / w } else { heightDp = long; widthDp = long * w / h }
+    }
     // Sticker-style outline around the image's own silhouette (see OverlayView). 0 = off.
     var strokeWidth by mutableStateOf(0f)
     var strokeColorArgb by mutableStateOf(android.graphics.Color.WHITE)
@@ -323,6 +331,9 @@ private sealed interface CropTarget {
     object Base : CropTarget
     object NewOverlay : CropTarget
     data class Replace(val item: ImageItem) : CropTarget
+    /** Re-crop a layer already on the canvas (an overlay photo or a sticker) — crop, cut out the
+     * background, flip — keeping where it sits. */
+    data class Recrop(val item: ImageItem) : CropTarget
 }
 
 // ---------- Screen ----------
@@ -1261,10 +1272,28 @@ fun EditorScreen(nav: NavHostController, stickerId: String?, animated: Boolean) 
             ) {
                 when (tab) {
                     EditorTab.CROP -> {
+                        // A selected overlay photo or sticker gets the same crop step as the photo:
+                        // crop, remove the background, mirror/water flip.
+                        val layer = (selectedItem as? ImageItem)?.takeIf { !it.isShape }
+                        if (layer != null) {
+                            SectionLabel("SELECTED LAYER")
+                            if (layer.animation != null) {
+                                PanelHint("Animated stickers can't be cropped — resize them on the canvas instead.")
+                            } else {
+                                PanelHint("Crop the selected layer, remove its background, or flip it.")
+                                PillButton("Crop · remove background", Icons.Rounded.Crop, Modifier.fillMaxWidth(), filled = true) {
+                                    cropTarget = CropTarget.Recrop(layer)
+                                    pendingCrop = layer.bitmap
+                                }
+                            }
+                            if (!clipMode && base != null) SectionLabel("PHOTO")
+                        }
                         if (clipMode) {
                             PanelHint("A video is cropped to a square for you. Trim its length on the timeline, and place stickers and text on top.")
                         } else if (base == null) {
-                            PanelHint("Add a photo first, then crop it from here any time — not just when you first add it.")
+                            if (layer == null) {
+                                PanelHint("Add a photo, or tap a sticker or overlay on the canvas, then crop it from here — background removal included.")
+                            }
                         } else {
                             PanelHint("Redraw the crop box over the photo as it looks right now (after any adjustments/erasing already applied).")
                             PillButton("Crop photo", Icons.Rounded.Crop, Modifier.fillMaxWidth(), filled = true) {
@@ -1389,7 +1418,13 @@ fun EditorScreen(nav: NavHostController, stickerId: String?, animated: Boolean) 
                                 PanelHint("Animated sticker — it plays in the saved animation. Drag a corner, or pinch anywhere on the canvas, to resize it.")
                             }
                             if (item is ImageItem) {
-                                PillButton("Replace image", Icons.Rounded.AddPhotoAlternate, Modifier.fillMaxWidth(), filled = true) {
+                                if (!item.isShape && item.animation == null) {
+                                    PillButton("Crop · remove background", Icons.Rounded.Crop, Modifier.fillMaxWidth(), filled = true) {
+                                        cropTarget = CropTarget.Recrop(item)
+                                        pendingCrop = item.bitmap
+                                    }
+                                }
+                                PillButton("Replace image", Icons.Rounded.AddPhotoAlternate, Modifier.fillMaxWidth()) {
                                     cropTarget = CropTarget.Replace(item)
                                     pickReplacement.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
                                 }
@@ -1509,6 +1544,7 @@ fun EditorScreen(nav: NavHostController, stickerId: String?, animated: Boolean) 
                         val i = ImageItem(nextId++, result); items.add(i); selectedId = i.id; tab = EditorTab.LAYER
                     }
                     is CropTarget.Replace -> { t.item.bitmap = result; t.item.animation = null; selectedId = t.item.id; tab = EditorTab.LAYER }
+                    is CropTarget.Recrop -> { t.item.bitmap = result; t.item.refitTo(result); selectedId = t.item.id; tab = EditorTab.LAYER }
                 }
                 pendingCrop = null
             },

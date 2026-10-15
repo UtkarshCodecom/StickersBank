@@ -199,6 +199,8 @@ private sealed interface CropTarget {
     object Base : CropTarget
     object NewOverlay : CropTarget
     data class Replace(val item: ImageItem) : CropTarget
+    /** Re-crop a layer already on the canvas — crop, remove background, flip — in place. */
+    data class Recrop(val item: ImageItem) : CropTarget
 }
 
 /** Tools that need to stay live on the canvas while active (freehand gestures), so they show a
@@ -1114,6 +1116,9 @@ private fun CanvasTemplateEditorContent(
                         }
                     },
                     onStyle = { panel = if (selectedItem is TextItem) Panel.TEXT_STYLE else Panel.LAYER_STYLE },
+                    onCrop = (selectedItem as? ImageItem)?.takeIf { !it.isShape && it.animation == null }?.let { img ->
+                        { cropTarget = CropTarget.Recrop(img); pendingCrop = img.bitmap }
+                    },
                     onDuplicate = { duplicate(selectedItem) },
                     onDelete = { deleteItem(selectedItem) },
                     onBringToFront = { bringToFront(items, selectedItem) },
@@ -1153,6 +1158,7 @@ private fun CanvasTemplateEditorContent(
                     CropTarget.Base -> { base = result; resetBaseAdjust() }
                     CropTarget.NewOverlay -> { val i = ImageItem(nextId++, result); items.add(i); selectedId = i.id; panel = null }
                     is CropTarget.Replace -> { t.item.bitmap = result; selectedId = t.item.id; panel = null }
+                    is CropTarget.Recrop -> { t.item.bitmap = result; t.item.refitTo(result); selectedId = t.item.id; panel = null }
                 }
                 pendingCrop = null
             },
@@ -1344,6 +1350,8 @@ private fun SelectionToolbar(
     items: SnapshotStateList<EditorItem>,
     onEdit: () -> Unit,
     onStyle: () -> Unit,
+    /** Crop / remove background for an image layer; null hides the button (text, shapes). */
+    onCrop: (() -> Unit)?,
     onDuplicate: () -> Unit,
     onDelete: () -> Unit,
     onBringToFront: () -> Unit,
@@ -1357,6 +1365,7 @@ private fun SelectionToolbar(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         ToolButton(if (item is TextItem) "Edit" else "Replace", if (item is TextItem) Icons.Rounded.Edit else Icons.Rounded.AddPhotoAlternate, onEdit)
+        if (onCrop != null) ToolButton("Crop · BG", Icons.Rounded.Crop, onCrop)
         ToolButton("Style", Icons.Rounded.Tune, onStyle)
         PriorityButton(item, items)
         ToolButton("To front", Icons.Rounded.FlipToFront, onBringToFront)
