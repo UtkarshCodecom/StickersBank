@@ -60,6 +60,8 @@ import com.stickers.bank.ui.components.SbBackHeader
 import com.stickers.bank.ui.detail.collectAsStateSafe
 import com.stickers.bank.ui.theme.AppBackground
 import com.stickers.bank.ui.theme.Gold
+import com.stickers.bank.ui.theme.OnGold
+import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import com.stickers.bank.ui.theme.AppOnSurface
 import com.stickers.bank.ui.theme.AppOnSurfaceMuted
 import com.stickers.bank.ui.theme.AppSurfaceElevated
@@ -130,36 +132,25 @@ fun CanvasTemplatesScreen(nav: NavHostController) {
             fontWeight = FontWeight.Black,
             modifier = Modifier.padding(start = 16.dp, top = 12.dp),
         )
-        Text(
-            "Pick one — then just change the picture and the text.",
-            color = AppOnSurfaceMuted, fontSize = 12.sp,
-            modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 2.dp, bottom = 8.dp),
-        )
-        // Start from nothing instead of a template: pick a shape, get an empty canvas of it.
+        // Start from nothing instead of a template: a quick shape choice, then an empty canvas.
         var showNewCanvas by remember { mutableStateOf(false) }
-        Row(
-            Modifier.fillMaxWidth()
-                .padding(start = 16.dp, end = 16.dp, bottom = 10.dp)
-                .neuRaised(cornerRadius = 14.dp, elevation = 6.dp)
-                .clip(RoundedCornerShape(14.dp))
-                .clickable { showNewCanvas = true }
-                .padding(horizontal = 14.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(Icons.Rounded.Add, null, tint = Gold, modifier = Modifier.size(20.dp))
-            Column(Modifier.padding(start = 10.dp)) {
-                Text("Create your own canvas", color = AppOnSurface, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                Text("Choose a shape and start from a blank canvas.", color = AppOnSurfaceMuted, fontSize = 11.sp)
-            }
+        var showAllSizes by remember { mutableStateOf(false) }
+        CreateCanvasButton(Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 12.dp)) { showNewCanvas = true }
+        fun openBlank(ratio: Float) {
+            // Own canvas → ad after the shape is chosen. Admin templates open ad-free.
+            showAd { nav.navigate(Routes.templateEditor(blankCanvasId(ratio))) }
         }
         if (showNewCanvas) {
-            NewCanvasPicker(
+            CanvasRatioPopup(
                 onDismiss = { showNewCanvas = false },
-                onPick = { ratio, _ ->
-                    showNewCanvas = false
-                    // Own canvas → ad after the size is chosen. Admin templates open ad-free.
-                    showAd { nav.navigate(Routes.templateEditor(blankCanvasId(ratio))) }
-                },
+                onPick = { ratio -> showNewCanvas = false; openBlank(ratio) },
+                onMoreSizes = { showNewCanvas = false; showAllSizes = true },
+            )
+        }
+        if (showAllSizes) {
+            NewCanvasPicker(
+                onDismiss = { showAllSizes = false },
+                onPick = { ratio, _ -> showAllSizes = false; openBlank(ratio) },
             )
         }
         when {
@@ -193,6 +184,98 @@ fun CanvasTemplatesScreen(nav: NavHostController) {
                     }
                 }
             }
+        }
+    }
+}
+
+/** The gold "Create your canvas" button at the top of Canvas — the Create tab's hero, in a
+ * slimmer row so the templates below stay in view. */
+@Composable
+private fun CreateCanvasButton(modifier: Modifier, onClick: () -> Unit) {
+    val display = com.stickers.bank.ui.theme.rememberDisplayFont()
+    val shape = remember { com.stickers.bank.ui.components.BucketShape(topInset = 14.dp, corner = 22.dp) }
+    Row(
+        modifier.fillMaxWidth().clip(shape).background(Gold).clickable(onClick = onClick)
+            .padding(start = 16.dp, end = 14.dp, top = 22.dp, bottom = 16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            Modifier.size(48.dp).clip(RoundedCornerShape(14.dp)).background(AppBackground),
+            contentAlignment = Alignment.Center,
+        ) { Icon(Icons.Rounded.Add, null, tint = Gold, modifier = Modifier.size(28.dp)) }
+        Column(Modifier.weight(1f).padding(start = 14.dp)) {
+            Text("CREATE YOUR CANVAS", color = OnGold, fontFamily = display, fontSize = 22.sp, lineHeight = 24.sp, letterSpacing = 0.5.sp)
+            Text("Pick a shape, start from a blank canvas.", color = OnGold.copy(alpha = 0.72f), fontSize = 12.sp)
+        }
+        Box(
+            Modifier.size(38.dp).clip(androidx.compose.foundation.shape.CircleShape).background(AppBackground),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(Icons.AutoMirrored.Rounded.ArrowForward, null, tint = Gold, modifier = Modifier.size(18.dp))
+        }
+    }
+}
+
+/** One quick canvas shape: its name, its ratio label, a hint of what it suits, and width/height. */
+private data class QuickRatio(val name: String, val label: String, val hint: String, val ratio: Float)
+
+private val QUICK_RATIOS = listOf(
+    QuickRatio("Square", "1:1", "Posts, profile pictures", 1f),
+    QuickRatio("Portrait", "4:5", "Instagram portrait post", 4f / 5f),
+    QuickRatio("Portrait", "3:4", "Photos, cards", 3f / 4f),
+    QuickRatio("Landscape", "16:9", "Thumbnails, wide banners", 16f / 9f),
+)
+
+/**
+ * "What shape?" — the four everyday canvas shapes as cards, each drawn at its own ratio so the
+ * difference is visible at a glance. "More sizes" opens the full catalog ([NewCanvasPicker]).
+ */
+@Composable
+private fun CanvasRatioPopup(onDismiss: () -> Unit, onPick: (Float) -> Unit, onMoreSizes: () -> Unit) {
+    androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
+        Column(
+            Modifier.fillMaxWidth().neuRaised(cornerRadius = 26.dp, elevation = 9.dp).padding(horizontal = 18.dp, vertical = 22.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text("CHOOSE A SHAPE", color = Gold, fontSize = 12.sp, letterSpacing = 2.sp, fontWeight = FontWeight.Black)
+            Text(
+                "Your canvas opens blank in this shape.", color = AppOnSurfaceMuted, fontSize = 12.sp,
+                modifier = Modifier.padding(top = 4.dp, bottom = 14.dp),
+            )
+            QUICK_RATIOS.chunked(2).forEach { pair ->
+                Row(Modifier.fillMaxWidth().padding(bottom = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    pair.forEach { r ->
+                        Column(
+                            Modifier.weight(1f).neuRaised(cornerRadius = 16.dp, elevation = 6.dp)
+                                .clip(RoundedCornerShape(16.dp)).clickable { onPick(r.ratio) }
+                                .padding(12.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                        ) {
+                            // The shape itself, fitted into the same square slot on every card.
+                            Box(Modifier.size(64.dp), contentAlignment = Alignment.Center) {
+                                Box(
+                                    Modifier.then(if (r.ratio >= 1f) Modifier.fillMaxWidth() else Modifier.height(64.dp))
+                                        .aspectRatio(r.ratio)
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .border(2.dp, Gold, RoundedCornerShape(6.dp))
+                                        .background(Gold.copy(alpha = 0.12f)),
+                                )
+                            }
+                            Text(r.name, color = AppOnSurface, fontWeight = FontWeight.Bold, fontSize = 14.sp, modifier = Modifier.padding(top = 10.dp))
+                            Text(r.label, color = Gold, fontWeight = FontWeight.Black, fontSize = 13.sp)
+                            Text(
+                                r.hint, color = AppOnSurfaceMuted, fontSize = 10.sp, maxLines = 1,
+                                overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 2.dp),
+                            )
+                        }
+                    }
+                }
+            }
+            Text(
+                "More sizes (YouTube, print, stories…)", color = Gold, fontWeight = FontWeight.Bold, fontSize = 13.sp,
+                modifier = Modifier.padding(top = 4.dp).clip(RoundedCornerShape(50)).clickable(onClick = onMoreSizes)
+                    .padding(horizontal = 14.dp, vertical = 8.dp),
+            )
         }
     }
 }
