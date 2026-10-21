@@ -9,7 +9,7 @@ import kotlinx.coroutines.flow.asStateFlow
  * When to invite the user to rate the app on the Play Store: right after they've sent stickers
  * out — the moment the app has just done its job for them. First time after the first send;
  * after "Later", again only once they've sent [SENDS_BETWEEN_ASKS] more and [DAYS_BETWEEN_ASKS]
- * have passed. Never again after "Rate now" or "Don't ask again".
+ * have passed. Never again once they've tapped "Rate now".
  */
 class RatePrompt(context: Context) {
     private val prefs = context.getSharedPreferences("rate_prompt", Context.MODE_PRIVATE)
@@ -30,7 +30,7 @@ class RatePrompt(context: Context) {
         if (due) _pending.value = true
     }
 
-    /** The prompt was shown; [done] = "Rate now" or "Don't ask again" (never show it again). */
+    /** The prompt was shown; [done] = "Rate now" was tapped (never show it again). */
     fun answered(done: Boolean) {
         _pending.value = false
         prefs.edit()

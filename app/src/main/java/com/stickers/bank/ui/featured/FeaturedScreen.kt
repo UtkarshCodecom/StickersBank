@@ -670,7 +670,7 @@ private fun TodayBanner(modifier: Modifier) {
 
 /** The today banner's greeting proportions: "Happy" and the gap after it, relative to the day's size. */
 private const val HAPPY_TO_DAY = 0.78f
-private const val GAP_TO_DAY = 0.28f
+private const val GAP_TO_DAY = 0.40f
 /** How much of the space it could fill the greeting actually takes. */
 private const val GREETING_FILL = 0.86f
 

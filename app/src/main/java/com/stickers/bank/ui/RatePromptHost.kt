@@ -88,11 +88,6 @@ fun RatePromptHost() {
                 modifier = Modifier.padding(top = 14.dp).clip(RoundedCornerShape(50)).clickable { close(done = false) }
                     .padding(horizontal = 18.dp, vertical = 6.dp),
             )
-            Text(
-                "Don't ask again", color = AppOnSurfaceMuted, fontSize = 12.sp,
-                modifier = Modifier.padding(top = 2.dp).clip(RoundedCornerShape(50)).clickable { close(done = true) }
-                    .padding(horizontal = 18.dp, vertical = 6.dp),
-            )
         }
     }
 }
