@@ -113,6 +113,11 @@ fun StickersBankApp() {
                             // CREATE opens the editor directly (the Sticker/Animation switch is in there).
                             Routes.CREATE -> nav.navigate(Routes.editor())
                             Routes.FEATURED -> { FeaturedSearch.clear(); nav.navigateToTab(tab.route) }
+                            // Canvas opens straight onto "New Project" (closing it shows the templates).
+                            Routes.CANVAS_TEMPLATES -> {
+                                com.stickers.bank.ui.templates.CanvasLaunch.newProject = true
+                                nav.navigateToTab(tab.route)
+                            }
                             else -> nav.navigateToTab(tab.route)
                         }
                     },

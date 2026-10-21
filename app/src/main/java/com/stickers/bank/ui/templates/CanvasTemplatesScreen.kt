@@ -36,6 +36,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import com.stickers.bank.ui.theme.AppSurface
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -140,8 +142,16 @@ fun CanvasTemplatesScreen(nav: NavHostController) {
             // Own canvas → ad after the shape is chosen. Admin templates open ad-free.
             showAd { nav.navigate(Routes.templateEditor(blankCanvasId(ratio))) }
         }
+        // Tapping Canvas in the bottom nav opens "New Project" straight away; closing it leaves
+        // the templates screen as it always was.
+        LaunchedEffect(CanvasLaunch.newProject) {
+            if (CanvasLaunch.newProject) {
+                showNewCanvas = true
+                CanvasLaunch.newProject = false
+            }
+        }
         if (showNewCanvas) {
-            CanvasRatioPopup(
+            NewProjectSheet(
                 onDismiss = { showNewCanvas = false },
                 onPick = { ratio -> showNewCanvas = false; openBlank(ratio) },
                 onMoreSizes = { showNewCanvas = false; showAllSizes = true },
@@ -216,67 +226,86 @@ private fun CreateCanvasButton(modifier: Modifier, onClick: () -> Unit) {
     }
 }
 
-/** One quick canvas shape: its name, its ratio label, a hint of what it suits, and width/height. */
-private data class QuickRatio(val name: String, val label: String, val hint: String, val ratio: Float)
+/** Set by the bottom nav when the Canvas tab is tapped; the screen opens "New Project" and clears it. */
+object CanvasLaunch {
+    var newProject by mutableStateOf(false)
+}
+
+/** One quick canvas shape: its name and its ratio (label + width/height). */
+private data class QuickRatio(val name: String, val label: String, val ratio: Float)
 
 private val QUICK_RATIOS = listOf(
-    QuickRatio("Square", "1:1", "Posts, profile pictures", 1f),
-    QuickRatio("Portrait", "4:5", "Instagram portrait post", 4f / 5f),
-    QuickRatio("Portrait", "3:4", "Photos, cards", 3f / 4f),
-    QuickRatio("Landscape", "16:9", "Thumbnails, wide banners", 16f / 9f),
+    QuickRatio("Portrait", "4:5", 4f / 5f),
+    QuickRatio("Portrait", "3:4", 3f / 4f),
+    QuickRatio("Story", "9:16", 9f / 16f),
+    QuickRatio("Square", "1:1", 1f),
+    QuickRatio("Landscape", "16:9", 16f / 9f),
 )
 
 /**
- * "What shape?" — the four everyday canvas shapes as cards, each drawn at its own ratio so the
- * difference is visible at a glance. "More sizes" opens the full catalog ([NewCanvasPicker]).
+ * "New Project" — a bottom sheet with the everyday canvas shapes side by side, each card drawn
+ * in its real proportions (same width, so taller shapes stand taller), bottoms lined up. Tap one
+ * and the canvas editor opens blank in that shape; the last card opens the full size catalog.
  */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
-private fun CanvasRatioPopup(onDismiss: () -> Unit, onPick: (Float) -> Unit, onMoreSizes: () -> Unit) {
-    androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
-        Column(
-            Modifier.fillMaxWidth().neuRaised(cornerRadius = 26.dp, elevation = 9.dp).padding(horizontal = 18.dp, vertical = 22.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Text("CHOOSE A SHAPE", color = Gold, fontSize = 12.sp, letterSpacing = 2.sp, fontWeight = FontWeight.Black)
-            Text(
-                "Your canvas opens blank in this shape.", color = AppOnSurfaceMuted, fontSize = 12.sp,
-                modifier = Modifier.padding(top = 4.dp, bottom = 14.dp),
-            )
-            QUICK_RATIOS.chunked(2).forEach { pair ->
-                Row(Modifier.fillMaxWidth().padding(bottom = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    pair.forEach { r ->
-                        Column(
-                            Modifier.weight(1f).neuRaised(cornerRadius = 16.dp, elevation = 6.dp)
-                                .clip(RoundedCornerShape(16.dp)).clickable { onPick(r.ratio) }
-                                .padding(12.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                        ) {
-                            // The shape itself, fitted into the same square slot on every card.
-                            Box(Modifier.size(64.dp), contentAlignment = Alignment.Center) {
-                                Box(
-                                    Modifier.then(if (r.ratio >= 1f) Modifier.fillMaxWidth() else Modifier.height(64.dp))
-                                        .aspectRatio(r.ratio)
-                                        .clip(RoundedCornerShape(6.dp))
-                                        .border(2.dp, Gold, RoundedCornerShape(6.dp))
-                                        .background(Gold.copy(alpha = 0.12f)),
-                                )
-                            }
-                            Text(r.name, color = AppOnSurface, fontWeight = FontWeight.Bold, fontSize = 14.sp, modifier = Modifier.padding(top = 10.dp))
-                            Text(r.label, color = Gold, fontWeight = FontWeight.Black, fontSize = 13.sp)
-                            Text(
-                                r.hint, color = AppOnSurfaceMuted, fontSize = 10.sp, maxLines = 1,
-                                overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 2.dp),
-                            )
-                        }
+private fun NewProjectSheet(onDismiss: () -> Unit, onPick: (Float) -> Unit, onMoreSizes: () -> Unit) {
+    androidx.compose.material3.ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        containerColor = AppSurface,
+        dragHandle = null,
+        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+    ) {
+        Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(bottom = 18.dp)) {
+            Box(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 18.dp, bottom = 26.dp)) {
+                Text(
+                    "New Project", color = AppOnSurface, fontSize = 20.sp, fontWeight = FontWeight.Bold,
+                    modifier = Modifier.align(Alignment.Center),
+                )
+                Box(
+                    Modifier.align(Alignment.CenterEnd).size(44.dp)
+                        .clip(androidx.compose.foundation.shape.CircleShape)
+                        .background(AppOnSurface.copy(alpha = 0.08f))
+                        .clickable(onClick = onDismiss),
+                    contentAlignment = Alignment.Center,
+                ) { Icon(Icons.Rounded.Close, "Close", tint = AppOnSurface, modifier = Modifier.size(22.dp)) }
+            }
+            Row(
+                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
+                verticalAlignment = Alignment.Bottom,
+            ) {
+                QUICK_RATIOS.forEach { r ->
+                    ShapeCard(r.name, r.ratio, onClick = { onPick(r.ratio) }) {
+                        Text(r.label, color = AppOnSurface, fontWeight = FontWeight.Bold, fontSize = 18.sp)
                     }
                 }
+                ShapeCard("More sizes", 1f, onClick = onMoreSizes) {
+                    Text("•••", color = Gold, fontWeight = FontWeight.Black, fontSize = 18.sp)
+                }
             }
-            Text(
-                "More sizes (YouTube, print, stories…)", color = Gold, fontWeight = FontWeight.Bold, fontSize = 13.sp,
-                modifier = Modifier.padding(top = 4.dp).clip(RoundedCornerShape(50)).clickable(onClick = onMoreSizes)
-                    .padding(horizontal = 14.dp, vertical = 8.dp),
-            )
         }
+    }
+}
+
+/** A New Project card: [ratio]-shaped tile (fixed width) with [content] in the middle and
+ * [name] underneath. */
+@Composable
+private fun ShapeCard(name: String, ratio: Float, onClick: () -> Unit, content: @Composable () -> Unit) {
+    val width = 96.dp
+    Column(
+        Modifier.width(width).clip(RoundedCornerShape(14.dp)).clickable(onClick = onClick),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Box(
+            Modifier.width(width).height(width / ratio)
+                .clip(RoundedCornerShape(12.dp))
+                .background(AppOnSurface.copy(alpha = 0.07f))
+                .border(1.5.dp, AppOnSurface.copy(alpha = 0.18f), RoundedCornerShape(12.dp)),
+            contentAlignment = Alignment.Center,
+        ) { content() }
+        Text(name, color = AppOnSurface, fontWeight = FontWeight.Bold, fontSize = 15.sp, modifier = Modifier.padding(top = 10.dp, bottom = 4.dp))
     }
 }
 

@@ -616,7 +616,8 @@ private fun CanvasTemplateEditorContent(
     }
 
     fun addText(text: String) {
-        val i = TextItem(nextId++, text, Color.White.toArgb(), null); items.add(i); selectedId = i.id; panel = null
+        // Black by default — canvases are mostly light designs, where white text vanished.
+        val i = TextItem(nextId++, text, Color.Black.toArgb(), null); items.add(i); selectedId = i.id; panel = null
     }
     fun addEmoji(emoji: String) {
         val i = TextItem(nextId++, emoji, Color.White.toArgb(), null).apply { fontSize = 72f }
@@ -951,6 +952,20 @@ private fun CanvasTemplateEditorContent(
                     TplAddPhotoPlaceholder { sheet = Sheet.PHOTO }
                 }
             }
+            // "Done" for a selection, pinned right under the top bar's Export so it's always in
+            // reach — it used to sit at the far end of the scrolling selection toolbar, off-screen.
+            if ((selectedId != null || baseSelected) && multiSelectedIds.size <= 1) {
+                Row(
+                    Modifier.align(Alignment.TopEnd)
+                        .clip(RoundedCornerShape(50)).background(Gold)
+                        .clickable { deselect() }
+                        .padding(horizontal = 14.dp, vertical = 9.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(Icons.Rounded.Check, "Done", tint = OnGold, modifier = Modifier.size(18.dp))
+                    Text("Done", color = OnGold, fontWeight = FontWeight.Bold, fontSize = 13.sp, modifier = Modifier.padding(start = 4.dp))
+                }
+            }
         }
 
         // ---- Bottom zone: swaps between the main tool row, a selection toolbar, a docked
@@ -1034,9 +1049,18 @@ private fun CanvasTemplateEditorContent(
                             TplSectionLabel("COLOR"); ColorSwatchRow(item.colorArgb) { item.colorArgb = it }
                             TplSectionLabel("FONT"); FontChipRow(item.fontPath) { item.fontPath = it }
                             AdjustSlider("Text size", item.fontSize, 16f..140f, 2f, { "${it.roundToInt()}" }, { item.fontSize = it }, { item.fontSize = 40f })
+                            AdjustSlider("Letter spacing", item.letterSpacing, 0f..24f, 1f, { "${it.roundToInt()}" }, { item.letterSpacing = it }, { item.letterSpacing = 0f })
+                            AdjustSlider("Line height", item.lineHeightMul, 0.8f..2.5f, 0.05f, { "${(it * 100).roundToInt()}%" }, { item.lineHeightMul = it }, { item.lineHeightMul = 1.1f })
                             AdjustSlider("Opacity", item.alpha, 0.1f..1f, 0.05f, { "${(it * 100).roundToInt()}%" }, { item.alpha = it }, { item.alpha = 1f })
+                            TplSectionLabel("TRANSFORM")
+                            AdjustSlider("Rotation", item.rotation, -180f..180f, 5f, { "${it.roundToInt()}°" }, { item.rotation = it }, { item.rotation = 0f })
+                            AdjustSlider("Scale", item.scale, 0.2f..4f, 0.05f, { "${(it * 100).roundToInt()}%" }, { item.scale = it }, { item.scale = 1f })
+                            AdjustSlider("X offset", item.offset.x, -400f..400f, 5f, { "${it.roundToInt()}" }, { item.offset = item.offset.copy(x = it) }, { item.offset = item.offset.copy(x = 0f) })
+                            AdjustSlider("Y offset", item.offset.y, -400f..400f, 5f, { "${it.roundToInt()}" }, { item.offset = item.offset.copy(y = it) }, { item.offset = item.offset.copy(y = 0f) })
                             AdjustSlider("X stretch", item.stretchX, 0.3f..3f, 0.05f, { "${(it * 100).roundToInt()}%" }, { item.stretchX = it }, { item.stretchX = 1f })
                             AdjustSlider("Y stretch", item.stretchY, 0.3f..3f, 0.05f, { "${(it * 100).roundToInt()}%" }, { item.stretchY = it }, { item.stretchY = 1f })
+                            AdjustSlider("Skew", item.skewX, -1f..1f, 0.05f, { "${(it * 100).roundToInt()}%" }, { item.skewX = it }, { item.skewX = 0f })
+                            AdjustSlider("Bend", item.bend, -100f..100f, 5f, { "${it.roundToInt()}" }, { item.bend = it }, { item.bend = 0f })
                             TplSectionLabel("ALIGN")
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 AlignBtn(Icons.AutoMirrored.Rounded.FormatAlignLeft, item.align == 0) { item.align = 0 }
@@ -1082,6 +1106,8 @@ private fun CanvasTemplateEditorContent(
                                 LayerTool.SIZE -> AdjustSlider("Size", item.scale, 0.2f..4f, 0.1f, { "${(it * 100).roundToInt()}%" }, { item.scale = it }, { item.scale = 1f })
                                 LayerTool.ROTATE -> AdjustSlider("Rotation", item.rotation, -180f..180f, 5f, { "${it.roundToInt()}°" }, { item.rotation = it }, { item.rotation = 0f })
                             }
+                            AdjustSlider("X offset", item.offset.x, -400f..400f, 5f, { "${it.roundToInt()}" }, { item.offset = item.offset.copy(x = it) }, { item.offset = item.offset.copy(x = 0f) })
+                            AdjustSlider("Y offset", item.offset.y, -400f..400f, 5f, { "${it.roundToInt()}" }, { item.offset = item.offset.copy(y = it) }, { item.offset = item.offset.copy(y = 0f) })
                             if (item.isShape) {
                                 TplSectionLabel("SHAPE COLOR")
                                 ColorSwatchRow(item.shapeColorArgb) { item.shapeColorArgb = it }
@@ -1101,7 +1127,6 @@ private fun CanvasTemplateEditorContent(
                     onFlip = { baseFlipX = !baseFlipX },
                     onResetTransform = { baseOffset = Offset.Zero; baseScale = 1f; baseScaleY = 1f; baseRotation = 0f; baseAlpha = 1f },
                     onDelete = ::deleteBase,
-                    onDone = { baseSelected = false },
                 )
                 selectedItem != null -> SelectionToolbar(
                     item = selectedItem,
@@ -1123,7 +1148,6 @@ private fun CanvasTemplateEditorContent(
                     onDelete = { deleteItem(selectedItem) },
                     onBringToFront = { bringToFront(items, selectedItem) },
                     onSendToBack = { sendToBack(items, selectedItem) },
-                    onDone = { deselect() },
                 )
                 else -> MainToolRow(
                     onPhoto = { sheet = Sheet.PHOTO },
@@ -1359,7 +1383,6 @@ private fun SelectionToolbar(
     onDelete: () -> Unit,
     onBringToFront: () -> Unit,
     onSendToBack: () -> Unit,
-    onDone: () -> Unit,
 ) {
     Row(
         Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 8.dp)
@@ -1375,10 +1398,6 @@ private fun SelectionToolbar(
         ToolButton("To back", Icons.Rounded.FlipToBack, onSendToBack)
         ToolButton("Duplicate", Icons.Rounded.ContentCopy, onDuplicate)
         ToolButton("Delete", Icons.Rounded.Delete, onDelete)
-        Spacer(Modifier.width(4.dp))
-        Box(
-            Modifier.clip(CircleShape).background(Gold).clickable(onClick = onDone).padding(10.dp),
-        ) { Icon(Icons.Rounded.Check, "Done", tint = OnGold, modifier = Modifier.size(18.dp)) }
     }
 }
 
@@ -1482,7 +1501,6 @@ private fun BaseSelectionToolbar(
     onFlip: () -> Unit,
     onResetTransform: () -> Unit,
     onDelete: () -> Unit,
-    onDone: () -> Unit,
 ) {
     Row(
         Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 8.dp)
@@ -1494,10 +1512,6 @@ private fun BaseSelectionToolbar(
         ToolButton("Flip", Icons.Rounded.Flip, onFlip)
         ToolButton("Reset", Icons.Rounded.Refresh, onResetTransform)
         ToolButton("Delete", Icons.Rounded.Delete, onDelete)
-        Spacer(Modifier.width(4.dp))
-        Box(
-            Modifier.clip(CircleShape).background(Gold).clickable(onClick = onDone).padding(10.dp),
-        ) { Icon(Icons.Rounded.Check, "Done", tint = OnGold, modifier = Modifier.size(18.dp)) }
     }
 }
 

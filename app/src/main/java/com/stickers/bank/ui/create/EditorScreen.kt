@@ -902,23 +902,15 @@ fun EditorScreen(nav: NavHostController, stickerId: String?, animated: Boolean) 
     }
 
     Column(Modifier.fillMaxSize()) {
-        // Top bar
-        Row(
-            Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 0.dp),
-            verticalAlignment = Alignment.CenterVertically,
+        // Top bar: back on the left, the Sticker / Animation switch in the MIDDLE (bigger, the
+        // main choice on this screen), Done on the right.
+        Box(
+            Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 2.dp),
         ) {
-            IconButtonRound(Icons.AutoMirrored.Rounded.ArrowBack) { nav.popBackStack() }
-            Text(
-                "EDITOR", color = Gold, fontSize = 18.sp, fontWeight = FontWeight.Black,
-                letterSpacing = 1.sp, modifier = Modifier.padding(start = 4.dp),
-            )
-            Spacer(Modifier.weight(1f))
-            // Sticker / Animation switch — inline with the title. Selected side shows its label.
-            // Locked once editing an EXISTING sticker (stickerId != null) OR the moment ANY
-            // content has been added to a fresh session (a photo/video, an overlay, or a
-            // drawing) — a static image and a moving clip aren't interchangeable, so switching
-            // modes partway through would just silently discard whatever was just added. Only
-            // a completely untouched, brand-new session gets to choose freely.
+            Box(Modifier.align(Alignment.CenterStart)) {
+                IconButtonRound(Icons.AutoMirrored.Rounded.ArrowBack) { nav.popBackStack() }
+            }
+            // Sticker / Animation switch. Selected side shows its label.
             // Locked only by what can't cross between the modes: a saved sticker being edited
             // keeps its kind, and a video or an animated sticker can't go into a still. A photo,
             // text, stickers and drawings work in both, so they no longer lock it.
@@ -935,8 +927,9 @@ fun EditorScreen(nav: NavHostController, stickerId: String?, animated: Boolean) 
                 else isAnim = toAnim
             }
             Row(
-                Modifier.neuRaised(cornerRadius = 50.dp, elevation = 6.dp).clip(RoundedCornerShape(50)).padding(vertical = 3.dp),
-                horizontalArrangement = Arrangement.spacedBy(2.dp),
+                Modifier.align(Alignment.Center)
+                    .neuRaised(cornerRadius = 50.dp, elevation = 7.dp).clip(RoundedCornerShape(50)).padding(4.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 // Always tappable, so a locked switch can explain itself instead of ignoring taps.
@@ -948,7 +941,7 @@ fun EditorScreen(nav: NavHostController, stickerId: String?, animated: Boolean) 
             val doneReady = !isAnim || videoUri != null || hasAnimatedItems
             PillButton(
                 "Done", Icons.Rounded.Check, filled = true,
-                modifier = Modifier.padding(start = 6.dp).graphicsLayer { alpha = if (doneReady) 1f else 0.4f },
+                modifier = Modifier.align(Alignment.CenterEnd).padding(end = 4.dp).graphicsLayer { alpha = if (doneReady) 1f else 0.4f },
                 onClick = {
                     if (isAnim) {
                         if (!doneReady) {
@@ -967,7 +960,7 @@ fun EditorScreen(nav: NavHostController, stickerId: String?, animated: Boolean) 
         }
 
         // Undo/redo on the left, Reset-everything on the right. The top bar above is already
-        // full (title + mode switch + Done), and this row had the space going spare.
+        // full (back + mode switch + Done), and this row had the space going spare.
         Row(
             Modifier.fillMaxWidth().padding(start = 8.dp, end = 8.dp, bottom = 6.dp, top = 0.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -1865,14 +1858,14 @@ private fun ModeSwitchBtn(
     Row(
         modifier.clip(RoundedCornerShape(50)).background(if (selected) Gold else Color.Transparent)
             .clickable(onClick = onClick)
-            .padding(horizontal = if (selected) 12.dp else 9.dp, vertical = 8.dp),
+            .padding(horizontal = if (selected) 16.dp else 12.dp, vertical = 11.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(icon, label, tint = (if (selected) AppBackground else AppOnSurfaceMuted).copy(alpha = alpha), modifier = Modifier.size(16.dp))
+        Icon(icon, label, tint = (if (selected) AppBackground else AppOnSurfaceMuted).copy(alpha = alpha), modifier = Modifier.size(21.dp))
         if (selected) {
             Text(
-                label, color = OnGold, fontSize = 10.sp, fontWeight = FontWeight.Bold,
-                letterSpacing = 0.3.sp, modifier = Modifier.padding(start = 5.dp),
+                label, color = OnGold, fontSize = 14.sp, fontWeight = FontWeight.Bold,
+                letterSpacing = 0.3.sp, modifier = Modifier.padding(start = 7.dp),
             )
         }
     }
