@@ -26,7 +26,7 @@ import com.google.android.gms.ads.interstitial.InterstitialAdLoadCallback
  */
 object Ads {
     private const val TAG = "Ads"
-    private const val REAL_INTERSTITIAL_UNIT_ID = "ca-app-pub-1281325310603643/1740033980"
+    private const val REAL_INTERSTITIAL_UNIT_ID = "ca-app-pub-1281325310603643/3137800153"
     private const val TEST_INTERSTITIAL_UNIT_ID = "ca-app-pub-3940256099942544/1033173712"
     private val INTERSTITIAL_UNIT_ID =
         if (com.stickers.bank.BuildConfig.DEBUG) TEST_INTERSTITIAL_UNIT_ID else REAL_INTERSTITIAL_UNIT_ID
