@@ -954,7 +954,7 @@ fun EditorScreen(nav: NavHostController, stickerId: String?, animated: Boolean) 
                         if (!doneReady) {
                             Toast.makeText(
                                 context,
-                                if (animNeedsMotion) "A photo alone doesn't move. Add a video or an animated sticker to save an animation."
+                                if (animNeedsMotion) "A photo alone doesn't save as an animation. Add a video or an animated sticker."
                                 else "Add a video or an animated sticker first",
                                 Toast.LENGTH_LONG,
                             ).show()
@@ -1116,7 +1116,7 @@ fun EditorScreen(nav: NavHostController, stickerId: String?, animated: Boolean) 
                     ) {
                         Icon(Icons.Rounded.Info, null, tint = Gold, modifier = Modifier.size(15.dp))
                         Text(
-                            "A photo doesn't move — add a video or an animated sticker to save",
+                            "A photo doesn't save — add a video or an animated sticker",
                             color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold,
                             modifier = Modifier.padding(start = 6.dp),
                         )
