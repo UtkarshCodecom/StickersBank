@@ -156,7 +156,6 @@ fun CanvasTemplatesScreen(nav: NavHostController) {
             NewProjectSheet(
                 onDismiss = { showNewCanvas = false },
                 onPick = { ratio -> showNewCanvas = false; openBlank(ratio) },
-                onMoreSizes = { showNewCanvas = false; showAllSizes = true },
             )
         }
         if (showAllSizes) {
@@ -263,17 +262,16 @@ private val QUICK_RATIOS = listOf(
     QuickRatio("Story", "9:16", 9f / 16f),
     QuickRatio("Square", "1:1", 1f),
     QuickRatio("Landscape", "1.91:1", 1.91f),
-    QuickRatio("Landscape", "16:9", 16f / 9f),
 )
 
 /**
  * "New Project" — a bottom sheet with the everyday canvas shapes side by side, each card drawn
  * in its real proportions (same width, so taller shapes stand taller), bottoms lined up. Tap one
- * and the canvas editor opens blank in that shape; the last card opens the full size catalog.
+ * and the canvas editor opens blank in that shape. (Every other size is on the gold button.)
  */
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
-private fun NewProjectSheet(onDismiss: () -> Unit, onPick: (Float) -> Unit, onMoreSizes: () -> Unit) {
+private fun NewProjectSheet(onDismiss: () -> Unit, onPick: (Float) -> Unit) {
     androidx.compose.material3.ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true),
@@ -304,9 +302,6 @@ private fun NewProjectSheet(onDismiss: () -> Unit, onPick: (Float) -> Unit, onMo
                     ShapeCard(r.name, r.ratio, onClick = { onPick(r.ratio) }) {
                         Text(r.label, color = AppOnSurface, fontWeight = FontWeight.Bold, fontSize = 18.sp)
                     }
-                }
-                ShapeCard("More sizes", 1f, onClick = onMoreSizes) {
-                    Text("•••", color = Gold, fontWeight = FontWeight.Black, fontSize = 18.sp)
                 }
             }
         }
