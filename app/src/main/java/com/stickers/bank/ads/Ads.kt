@@ -27,13 +27,15 @@ import com.google.android.gms.ads.interstitial.InterstitialAdLoadCallback
 object Ads {
     private const val TAG = "Ads"
     private const val REAL_INTERSTITIAL_UNIT_ID = "ca-app-pub-1281325310603643/3137800153"
-    private const val TEST_INTERSTITIAL_UNIT_ID = "ca-app-pub-3940256099942544/1033173712"
+    private const val TEST_INTERSTITIAL_UNIT_ID = "ca-app-pub-1281325310603643/3137800153"
     private val INTERSTITIAL_UNIT_ID =
         if (com.stickers.bank.BuildConfig.DEBUG) TEST_INTERSTITIAL_UNIT_ID else REAL_INTERSTITIAL_UNIT_ID
 
     private var appContext: Context? = null
     private var ad: InterstitialAd? = null
     private var loading = false
+    private val main = android.os.Handler(android.os.Looper.getMainLooper())
+    private var retries = 0
 
     // Shared by every full-screen format (this interstitial and [AppOpenAds]), so two are never
     // stacked or shown back to back.
@@ -77,13 +79,27 @@ object Ads {
         InterstitialAd.load(
             ctx, INTERSTITIAL_UNIT_ID, AdRequest.Builder().build(),
             object : InterstitialAdLoadCallback() {
-                override fun onAdLoaded(loaded: InterstitialAd) { ad = loaded; loading = false }
+                override fun onAdLoaded(loaded: InterstitialAd) {
+                    Log.i(TAG, "interstitial loaded")
+                    ad = loaded; loading = false; retries = 0
+                }
                 override fun onAdFailedToLoad(error: LoadAdError) {
-                    Log.w(TAG, "interstitial failed to load: ${error.message}")
+                    // Code 3 = "no fill": AdMob had no ad to give (common for a new app or unit,
+                    // or before AdMob has approved the app); 1 = bad request (IDs); 2 = network.
+                    Log.w(TAG, "interstitial failed to load: code=${error.code} ${error.message} | ${error.responseInfo}")
                     ad = null; loading = false
+                    retryLater(retries++) { load() }
                 }
             },
         )
+    }
+
+    /** Try a failed load again after 30s, 60s, 2min, 4min — then wait for the next natural
+     * request (the next [show]), rather than hammering AdMob for an ad it doesn't have. A load
+     * that failed used to be retried only at the next show — which then had nothing to show. */
+    internal fun retryLater(attempt: Int, again: () -> Unit) {
+        if (attempt >= 4) return
+        main.postDelayed(again, 30_000L shl attempt)
     }
 
     /** Shows an interstitial over [activity], then calls [onFinished] (once) when it's closed.

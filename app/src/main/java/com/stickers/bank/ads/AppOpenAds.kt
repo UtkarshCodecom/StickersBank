@@ -21,7 +21,7 @@ import com.stickers.bank.MainActivity
  */
 object AppOpenAds : Application.ActivityLifecycleCallbacks {
     private const val TAG = "AppOpenAds"
-    private const val TEST_UNIT_ID = "ca-app-pub-3940256099942544/9257395921"
+    private const val TEST_UNIT_ID = "ca-app-pub-1281325310603643/6984448348"
 
     // The real "App open" ad unit — its own unit, since the interstitial one can't serve this format.
     private const val REAL_UNIT_ID = "ca-app-pub-1281325310603643/6984448348"
@@ -37,6 +37,7 @@ object AppOpenAds : Application.ActivityLifecycleCallbacks {
     private var loadedAt = 0L
     private var loading = false
     private var startedActivities = 0
+    private var retries = 0
     private var wentToBackgroundAt = 0L // 0 = hasn't been to the background since launch
 
     fun init(application: Application) {
@@ -52,11 +53,13 @@ object AppOpenAds : Application.ActivityLifecycleCallbacks {
             ctx, unitId, AdRequest.Builder().build(),
             object : AppOpenAd.AppOpenAdLoadCallback() {
                 override fun onAdLoaded(loaded: AppOpenAd) {
-                    ad = loaded; loadedAt = SystemClock.elapsedRealtime(); loading = false
+                    Log.i(TAG, "app-open ad loaded")
+                    ad = loaded; loadedAt = SystemClock.elapsedRealtime(); loading = false; retries = 0
                 }
                 override fun onAdFailedToLoad(error: LoadAdError) {
-                    Log.w(TAG, "app-open ad failed to load: ${error.message}")
+                    Log.w(TAG, "app-open ad failed to load: code=${error.code} ${error.message} | ${error.responseInfo}")
                     ad = null; loading = false
+                    Ads.retryLater(retries++) { load() }
                 }
             },
         )

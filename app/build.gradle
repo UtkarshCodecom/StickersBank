@@ -19,15 +19,15 @@ android {
         applicationId "com.stickers.bank"
         minSdk 24
         targetSdk 37
-        versionCode 26
-        versionName "7.2"
+        versionCode 27
+        versionName "7.4"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary true }
 
         // AdMob App ID (AndroidManifest's APPLICATION_ID meta-data). Debug builds use Google's
         // public test app — paired with the test ad unit in ads/Ads.kt.
-        manifestPlaceholders = [admobAppId: "ca-app-pub-3940256099942544~3347511713"]
+        manifestPlaceholders = [admobAppId: "ca-app-pub-1281325310603643~2660946725"]
 
         // Cloudflare R2 keys for the in-app admin uploader — from local.properties, so they
         // stay out of git. Missing keys just leave the admin upload switched off (R2Config).
