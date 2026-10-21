@@ -39,7 +39,8 @@ object Ads {
 
     // Shared by every full-screen format (this interstitial and [AppOpenAds]), so two are never
     // stacked or shown back to back.
-    private const val COOLDOWN_MS = 2 * 60 * 1000L
+    // At most one full-screen ad every 3 minutes, whatever the user does.
+    private const val COOLDOWN_MS = 3 * 60 * 1000L
     private var showingFullScreen = false
     private var lastFullScreenEndedAt = 0L
 

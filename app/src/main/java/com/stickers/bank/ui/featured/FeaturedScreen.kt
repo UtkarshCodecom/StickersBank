@@ -199,7 +199,6 @@ fun FeaturedScreen(nav: NavHostController) {
     val exportPack = rememberPackExporter()
     val gifShare = rememberGifShare()
     val telegramSend = rememberTelegramPackShare()
-    val showAd = com.stickers.bank.ads.rememberInterstitial()
 
     // Drop any selection when you leave the results grid.
     LaunchedEffect(searching) { if (!searching) selection.clear() }
@@ -318,7 +317,8 @@ fun FeaturedScreen(nav: NavHostController) {
                             bannerDisplayMode = bannerDisplayMode,
                             trending = trending,
                             popularTags = popularTags,
-                            onTrendingClick = { card -> showAd { nav.navigate(Routes.trending(card.id)) } },
+                            // Opens directly: no interstitial on navigation (AdMob policy).
+                            onTrendingClick = { card -> nav.navigate(Routes.trending(card.id)) },
                             onTagClick = { tag -> nav.navigate(Routes.tag(tag)) },
                             onSeeAllTrending = { nav.navigate(Routes.TRENDING_ALL) },
                         )
@@ -1150,7 +1150,6 @@ fun TagResultsScreen(nav: NavHostController, tag: String) {
 
 @Composable
 fun TrendingAllScreen(nav: NavHostController) {
-    val showAd = com.stickers.bank.ads.rememberInterstitial()
     val trending by ServiceLocator.catalogRepository.trending.collectAsStateSafe()
     Column(Modifier.fillMaxSize()) {
         SbBackHeader("Trending", { nav.popBackStack() })
@@ -1167,7 +1166,7 @@ fun TrendingAllScreen(nav: NavHostController) {
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 gridItems(trending, key = { it.id }) { card ->
-                    TrendingTile(card, Modifier.fillMaxWidth()) { c -> showAd { nav.navigate(Routes.trending(c.id)) } }
+                    TrendingTile(card, Modifier.fillMaxWidth()) { c -> nav.navigate(Routes.trending(c.id)) }
                 }
             }
         }

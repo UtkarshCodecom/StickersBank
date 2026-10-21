@@ -121,7 +121,6 @@ fun templateRows(templates: List<CanvasTemplate>): List<Pair<String, List<Canvas
  */
 @Composable
 fun CanvasTemplatesScreen(nav: NavHostController) {
-    val showAd = com.stickers.bank.ads.rememberInterstitial()
     val templates by ServiceLocator.catalogRepository.canvasTemplates.collectAsStateSafe()
     val loading by ServiceLocator.catalogRepository.loading.collectAsStateSafe()
     val rows = remember(templates) { templateRows(templates) }
@@ -141,8 +140,9 @@ fun CanvasTemplatesScreen(nav: NavHostController) {
         NewProjectButton(Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 10.dp)) { showNewCanvas = true }
         CreateCanvasButton(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 12.dp)) { showAllSizes = true }
         fun openBlank(ratio: Float) {
-            // Own canvas → ad after the shape is chosen. Admin templates open ad-free.
-            showAd { nav.navigate(Routes.templateEditor(blankCanvasId(ratio))) }
+            // Straight in — no ad on the way to the editor (AdMob's navigation policy: no
+            // interstitial on a tap that moves between screens). The ad comes at Export instead.
+            nav.navigate(Routes.templateEditor(blankCanvasId(ratio)))
         }
         // Tapping Canvas in the bottom nav opens "New Project" straight away; closing it leaves
         // the templates screen as it always was.
