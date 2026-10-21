@@ -58,6 +58,35 @@ object StickerBadge {
         return sticker.copy(image = out.absolutePath)
     }
 
+    /**
+     * The pack's icon in WhatsApp's sticker tray (96×96 PNG): the Stickers Bank logo — with a
+     * small video badge in the bottom-right for an animated pack, so the two kinds are told apart
+     * at a glance. Null if the logo can't be read (the caller falls back to a sticker).
+     */
+    fun trayPng(context: Context, animated: Boolean): ByteArray? = runCatching {
+        val logo = BitmapFactory.decodeResource(context.resources, R.drawable.sticker_badge) ?: return null
+        val size = 96f
+        val out = Bitmap.createBitmap(96, 96, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(out)
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
+        canvas.drawBitmap(logo, null, RectF(2f, 2f, size - 2f, size - 2f), paint)
+        if (animated) {
+            // A dark disc with a white rim and a white play triangle: the universal "video".
+            val cx = size - 19f
+            val cy = size - 19f
+            canvas.drawCircle(cx, cy, 18f, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = android.graphics.Color.WHITE })
+            canvas.drawCircle(cx, cy, 15.5f, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFF1C1C1C.toInt() })
+            val play = android.graphics.Path().apply {
+                moveTo(cx - 5f, cy - 8f)
+                lineTo(cx + 9f, cy)
+                lineTo(cx - 5f, cy + 8f)
+                close()
+            }
+            canvas.drawPath(play, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = android.graphics.Color.WHITE })
+        }
+        java.io.ByteArrayOutputStream().also { out.compress(Bitmap.CompressFormat.PNG, 100, it) }.toByteArray()
+    }.getOrNull()
+
     /** A copy of [src] with the badge drawn in its top-right corner. */
     fun stamp(src: Bitmap, badge: Bitmap): Bitmap {
         val out = src.copy(Bitmap.Config.ARGB_8888, true)

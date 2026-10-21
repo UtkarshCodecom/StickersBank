@@ -840,6 +840,13 @@ fun EditorScreen(nav: NavHostController, stickerId: String?, animated: Boolean) 
                 // Over a video: overlays (text/stickers/drawings) + adjustments baked onto every
                 // frame — captured once, or per frame when there are animated stickers in it.
                 val overlayImg = if (animatedItems.isEmpty()) runCatching { overlayLayer.toImageBitmap() }.getOrNull() else null
+                // Where the clip was moved/resized to, in canvas-side fractions (see Placement).
+                val sidePx = with(density) { canvasSideDp.dp.toPx() }.coerceAtLeast(1f)
+                val placement = VideoToWebp.Placement(
+                    offsetX = baseOffset.x / sidePx, offsetY = baseOffset.y / sidePx,
+                    scaleX = baseScale, scaleY = baseScaleY, rotation = baseRotation,
+                    flipX = baseFlipX, alpha = baseAlpha, background = bgColor?.toArgb(),
+                )
                 val matrix = buildColorMatrixArray(preset, brightness, contrast, saturation, warmth, shadows, highlights)
                 withContext(Dispatchers.IO) {
                     val ov = overlayImg?.let { img ->
@@ -854,6 +861,7 @@ fun EditorScreen(nav: NavHostController, stickerId: String?, animated: Boolean) 
                         endMs = if (trimEndMs > trimStartMs) trimEndMs else Long.MAX_VALUE,
                         overlayAt = if (animatedItems.isEmpty()) null else { _, t -> captureAt(overlayLayer, t) },
                         onProgress = onProgress,
+                        placement = placement,
                     )
                 }
             } else {
@@ -1034,7 +1042,9 @@ fun EditorScreen(nav: NavHostController, stickerId: String?, animated: Boolean) 
                                     // Two fingers anywhere on the canvas resize/turn the selected
                                     // sticker or text — a small one can't fit two fingers on it.
                                     layer.scale = (layer.scale * zoom).coerceIn(0.1f, 12f); layer.rotation += rot
-                                } else if (!clipMode) {
+                                } else {
+                                    // The photo — or the video, which can be moved and resized
+                                    // too; the saved animation keeps it exactly where it's put.
                                     baseOffset = applyCenterSnap(baseOffset + pan); baseScale *= zoom; baseScaleY *= zoom
                                     baseRotation += rot; selectedId = null; baseSelected = true; tab = EditorTab.LAYER
                                 }
@@ -1049,9 +1059,7 @@ fun EditorScreen(nav: NavHostController, stickerId: String?, animated: Boolean) 
                             // whatever tab you were already on, with nothing there to act on it.
                             onTap = { selectedId = null; baseSelected = true; tab = EditorTab.LAYER },
                             selected = baseSelected,
-                            // The clip frame always fills the canvas in Animation mode — the saved
-                            // animation uses the whole frame, so resizing it here would mislead.
-                            onResize = if (clipMode) null else { sx, sy, shift ->
+                            onResize = { sx, sy, shift ->
                                 baseScale = sx; baseScaleY = sy; baseOffset += shift
                             },
                         )
@@ -1120,7 +1128,7 @@ fun EditorScreen(nav: NavHostController, stickerId: String?, animated: Boolean) 
                     // their own are an animation too, and this would cover them.
                     if (editLoading) {
                         Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
-                            com.stickers.bank.ui.components.ZigZagSpinner(Modifier.size(54.dp))
+                            com.stickers.bank.ui.components.PolygonProgress(null, Modifier.size(54.dp))
                             Text("Loading animation…", color = AppOnSurfaceMuted, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 10.dp))
                         }
                     } else if (base == null && items.isEmpty() && drawStrokes.isEmpty() && bgColor == null) {
@@ -1130,7 +1138,7 @@ fun EditorScreen(nav: NavHostController, stickerId: String?, animated: Boolean) 
                     // A clip IS picked and its first frame is on its way — not the "Add a video"
                     // prompt, which used to flash up here while the clip was being read.
                     Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
-                        com.stickers.bank.ui.components.ZigZagSpinner(Modifier.size(54.dp))
+                        com.stickers.bank.ui.components.PolygonProgress(null, Modifier.size(54.dp))
                         Text("Loading clip…", color = AppOnSurfaceMuted, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 10.dp))
                     }
                 } else if (isAnim && base == null) {
@@ -1228,9 +1236,9 @@ fun EditorScreen(nav: NavHostController, stickerId: String?, animated: Boolean) 
                 var moreOpen by remember { mutableStateOf(false) }
                 RailButton("More", Icons.Rounded.MoreHoriz, false) { moreOpen = true }
                 DropdownMenu(expanded = moreOpen, onDismissRequest = { moreOpen = false }) {
-                    if (!clipMode) {
+                    run {
                         DropdownMenuItem(
-                            text = { Text("Flip photo") },
+                            text = { Text(if (clipMode) "Flip video" else "Flip photo") },
                             enabled = base != null,
                             onClick = { baseFlipX = !baseFlipX; moreOpen = false },
                         )
@@ -1371,7 +1379,15 @@ fun EditorScreen(nav: NavHostController, stickerId: String?, animated: Boolean) 
                             // about the video: swap it or take it out. (Its look is set with Adjust
                             // and Filter; its length on the timeline.)
                             SectionLabel("VIDEO")
-                            PanelHint("Trim the clip on the timeline above. Adjust and Filter change the whole clip.")
+                            PanelHint("Drag, pinch or pull a corner to move and resize the clip — the saved animation keeps it there. Trim it on the timeline above.")
+                            AdjustSlider("Opacity", baseAlpha, 0.1f..1f, 0.05f, { "${(it * 100).roundToInt()}%" }, { baseAlpha = it }, { baseAlpha = 1f })
+                            AdjustSlider("Rotation", baseRotation, -180f..180f, 5f, { "${it.roundToInt()}°" }, { baseRotation = it }, { baseRotation = 0f })
+                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                PillButton("Flip video", Icons.Rounded.Flip, Modifier.weight(1f)) { baseFlipX = !baseFlipX }
+                                PillButton("Fill canvas", Icons.Rounded.Refresh, Modifier.weight(1f)) {
+                                    baseOffset = Offset.Zero; baseScale = 1f; baseScaleY = 1f; baseRotation = 0f
+                                }
+                            }
                             PillButton("Replace video", Icons.Rounded.Movie, Modifier.fillMaxWidth(), filled = true) {
                                 pickVideo.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly))
                             }
@@ -1625,95 +1641,14 @@ fun EditorScreen(nav: NavHostController, stickerId: String?, animated: Boolean) 
     if (saving) SavingOverlay(saveProgress)
 }
 
-/**
- * Full-screen "working on it" cover shown while a sticker/animation actually saves (see
- * `saving` in EditorContent). A frosted-glass square sits centered over a dimmed backdrop; its
- * border sweeps around the square's own perimeter on a loop (a polygon "completing" itself the
- * way a circular spinner sweeps a circle) while the whole square keeps a slow independent spin
- * going, so it reads as busy rather than stuck — important since video encoding in particular
- * can take a real few seconds. Blocks back-press and outside taps: nothing to cancel mid-write.
- */
+/** The save in progress: the app's loading popup — with the percentage while an animation is
+ * encoded frame by frame, just turning for a quick still save. */
 @Composable
 private fun SavingOverlay(progress: Float? = null) {
-    Dialog(
-        onDismissRequest = {},
-        properties = DialogProperties(
-            dismissOnBackPress = false, dismissOnClickOutside = false, usePlatformDefaultWidth = false,
-        ),
-    ) {
-        Box(
-            Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.4f)),
-            contentAlignment = Alignment.Center,
-        ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                if (progress != null) ProgressRing(progress) else SavingSpinner()
-                Spacer(Modifier.height(18.dp))
-                Text(
-                    if (progress != null) "Making your animation…" else "Saving…",
-                    color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp,
-                )
-            }
-        }
-    }
-}
-
-/** A ring that fills as [progress] (0–1) does, with the percentage in the middle — for saves
- * long enough to deserve one (an animation is encoded frame by frame). */
-@Composable
-private fun ProgressRing(progress: Float) {
-    // Eased toward each new value, so the ring glides between frames instead of jumping.
-    val shown by androidx.compose.animation.core.animateFloatAsState(
-        progress.coerceIn(0f, 1f), animationSpec = tween(260), label = "saveProgress",
+    com.stickers.bank.ui.components.PreparingPopup(
+        if (progress != null) "Making your animation…" else "Saving…",
+        progress = progress,
     )
-    Box(
-        Modifier.size(108.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.16f))
-            .border(1.dp, Color.White.copy(alpha = 0.55f), CircleShape),
-        contentAlignment = Alignment.Center,
-    ) {
-        Canvas(Modifier.fillMaxSize().padding(10.dp)) {
-            val stroke = 6.dp.toPx()
-            val inset = stroke / 2f
-            val arcSize = Size(size.width - stroke, size.height - stroke)
-            drawArc(Color.White.copy(alpha = 0.18f), 0f, 360f, false, Offset(inset, inset), arcSize, style = Stroke(stroke))
-            drawArc(Gold, -90f, 360f * shown, false, Offset(inset, inset), arcSize, style = Stroke(stroke, cap = StrokeCap.Round))
-        }
-        Text("${(shown * 100).roundToInt()}%", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Black)
-    }
-}
-
-/** The indeterminate version: a rounded square whose outline keeps drawing itself as it turns. */
-@Composable
-private fun SavingSpinner() {
-    val infinite = rememberInfiniteTransition(label = "saving")
-    val spin by infinite.animateFloat(
-        initialValue = 0f, targetValue = 360f,
-        animationSpec = infiniteRepeatable(tween(2200, easing = LinearEasing)),
-        label = "spin",
-    )
-    // Eases up to a full lap then instantly resets — reads as the outline "completing"
-    // itself over and over, not a smooth continuous wobble.
-    val sweep by infinite.animateFloat(
-        initialValue = 0f, targetValue = 1f,
-        animationSpec = infiniteRepeatable(tween(1100, easing = LinearEasing), repeatMode = RepeatMode.Restart),
-        label = "sweep",
-    )
-    Box(
-        Modifier.size(108.dp)
-            .graphicsLayer { rotationZ = spin }
-            .clip(RoundedCornerShape(24.dp))
-            .background(Color.White.copy(alpha = 0.16f))
-            .border(1.dp, Color.White.copy(alpha = 0.55f), RoundedCornerShape(24.dp)),
-    ) {
-        Canvas(Modifier.fillMaxSize().padding(10.dp)) {
-            val full = ComposePath().apply {
-                addRoundRect(RoundRect(Rect(Offset.Zero, size), CornerRadius(14.dp.toPx())))
-            }
-            val measure = PathMeasure().apply { setPath(full, false) }
-            val segment = ComposePath()
-            measure.getSegment(0f, measure.length * sweep, segment, true)
-            drawPath(segment, color = Gold, style = Stroke(width = 4.dp.toPx(), cap = StrokeCap.Round))
-        }
-    }
 }
 
 // ---------- Reusable pieces ----------

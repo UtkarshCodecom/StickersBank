@@ -113,6 +113,8 @@ private fun rememberWhatsAppPackSender(): (List<PackRequest>) -> Unit {
     var chooseTargetFor by remember { mutableStateOf<List<PackRequest>?>(null) }
     // Title + note for the glass "preparing" popup while packs are being built; null = hidden.
     var preparing by remember { mutableStateOf<Pair<String, String?>?>(null) }
+    // How far through ALL the packs being built (0–1), shown as the popup's percentage.
+    var buildProgress by remember { mutableStateOf(0f) }
 
     val activity = com.stickers.bank.ads.rememberActivity()
     val send: (List<PackRequest>, String) -> Unit = { reqs, pkg ->
@@ -124,6 +126,7 @@ private fun rememberWhatsAppPackSender(): (List<PackRequest>) -> Unit {
                 val built = ArrayList<QueuedPack>()
                 var notAdded = 0
                 val mixed = reqs.map { it.animated }.distinct().size > 1
+                buildProgress = 0f
                 for ((i, req) in reqs.withIndex()) {
                     preparing = when {
                         reqs.size > 1 -> "Preparing pack ${i + 1} of ${reqs.size}…"
@@ -139,7 +142,10 @@ private fun rememberWhatsAppPackSender(): (List<PackRequest>) -> Unit {
                         withContext(Dispatchers.IO) {
                             // Stickers the user made go out with the small Stickers Bank badge.
                             val stickers = com.stickers.bank.util.StickerBadge.branded(context, req.stickers)
-                            StickerExporter.buildWhatsAppPack(context, req.name, stickers, animated = req.animated, identifier = req.identifier)
+                            StickerExporter.buildWhatsAppPack(
+                                context, req.name, stickers, animated = req.animated, identifier = req.identifier,
+                                onProgress = { p -> buildProgress = (i + p) / reqs.size },
+                            )
                                 ?.let { it to (!req.showAddScreen && StickerExporter.isPackAdded(context, pkg, it.pack.identifier)) }
                         }
                     } catch (e: kotlinx.coroutines.CancellationException) {
@@ -156,6 +162,7 @@ private fun rememberWhatsAppPackSender(): (List<PackRequest>) -> Unit {
                         notAdded += pack.skipped
                     }
                 }
+                buildProgress = 1f
                 adClosed.await()
                 preparing = null
                 if (built.isEmpty()) {
@@ -183,7 +190,7 @@ private fun rememberWhatsAppPackSender(): (List<PackRequest>) -> Unit {
             Unit
     }
 
-    preparing?.let { (title, note) -> PreparingPopup(title, note) }
+    preparing?.let { (title, note) -> PreparingPopup(title, note, buildProgress) }
 
     chooseTargetFor?.let { reqs ->
         WhatsAppTargetDialog(

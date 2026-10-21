@@ -367,7 +367,7 @@ fun CropDialog(
                             .background(Color.Black.copy(alpha = 0.7f)).padding(horizontal = 22.dp, vertical = 18.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
-                        com.stickers.bank.ui.components.ZigZagSpinner(Modifier.size(48.dp))
+                        com.stickers.bank.ui.components.PolygonProgress(null, Modifier.size(48.dp))
                         Text(
                             "Removing background…", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold,
                             modifier = Modifier.padding(top = 10.dp),

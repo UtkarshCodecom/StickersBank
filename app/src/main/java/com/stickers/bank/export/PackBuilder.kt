@@ -86,6 +86,8 @@ object PackBuilder {
         publisher: String = "Stickers Bank",
         animated: Boolean = false,
         identifier: String? = null,
+        /** 0–1 as stickers are done. */
+        onProgress: (Float) -> Unit = {},
     ): Result? {
         val chosen = stickers.distinctBy { it.id }.take(MAX_STICKERS)
         val id = identifier ?: identifierFor(name, chosen, animated)
@@ -116,10 +118,14 @@ object PackBuilder {
         val trayName = "tray_$stamp.png"
 
         val waStickers = ArrayList<WaSticker>()
-        var trayWritten = false
+        // The tray icon is the Stickers Bank logo (plus a video badge for animated packs); the
+        // first sticker is only the fallback if the logo can't be drawn.
+        var trayWritten = com.stickers.bank.util.StickerBadge.trayPng(context, animated)
+            ?.let { File(staging, trayName).writeBytes(it); true } ?: false
         var skipped = 0
 
-        chosen.forEach { sticker ->
+        chosen.forEachIndexed { index, sticker ->
+            onProgress(index.toFloat() / chosen.size)
             val fileName = fileName(waStickers.size)
             if (animated) {
                 // Animated WebP: copy the original bytes untouched so the animation survives.
@@ -129,7 +135,7 @@ object PackBuilder {
                 val bytes = BitmapUtils.downloadBytes(context, sticker)
                 if (bytes == null || bytes.size > WA_ANIMATED_MAX_BYTES || !isAnimatedWebp(bytes) || !is512Canvas(bytes)) {
                     skipped++
-                    return@forEach
+                    return@forEachIndexed
                 }
                 File(staging, fileName).writeBytes(bytes)
                 waStickers += WaSticker(imageFileName = fileName, emojis = emojiFor(sticker))
@@ -144,7 +150,7 @@ object PackBuilder {
                 val bmp = BitmapUtils.loadBitmap(context, sticker)
                 if (bmp == null) {
                     skipped++
-                    return@forEach
+                    return@forEachIndexed
                 }
                 BitmapUtils.writeWebp(bmp, File(staging, fileName))
                 waStickers += WaSticker(imageFileName = fileName, emojis = emojiFor(sticker))

@@ -82,9 +82,10 @@ object StickerExporter {
         animated: Boolean = false,
         /** Fixed identifier (the growing "Stickers Bank" pack); null = a new pack for this selection. */
         identifier: String? = null,
+        onProgress: (Float) -> Unit = {},
     ): PackBuilder.Result? {
         if (stickers.size < PackBuilder.MIN_STICKERS) return null
-        return PackBuilder.build(context, name, stickers, animated = animated, identifier = identifier)
+        return PackBuilder.build(context, name, stickers, animated = animated, identifier = identifier, onProgress = onProgress)
     }
 
     /**

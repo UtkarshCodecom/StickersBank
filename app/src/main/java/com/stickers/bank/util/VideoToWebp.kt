@@ -29,6 +29,23 @@ object VideoToWebp {
     private const val MAX_FRAMES = 48
     private const val QUALITY = 70
 
+    /**
+     * Where the clip sits in the sticker, as the editor shows it: moved by [offsetX]/[offsetY]
+     * (fractions of the canvas side, from its centre), sized [scaleX]/[scaleY] times the full
+     * canvas, turned [rotation]°, optionally mirrored, faded to [alpha], over [background] (ARGB;
+     * null = transparent). Anything the clip no longer covers stays see-through.
+     */
+    class Placement(
+        val offsetX: Float, val offsetY: Float,
+        val scaleX: Float, val scaleY: Float,
+        val rotation: Float, val flipX: Boolean, val alpha: Float,
+        val background: Int?,
+    ) {
+        /** Filling the canvas exactly, as the clip did before it could be moved. */
+        val isIdentity: Boolean get() =
+            offsetX == 0f && offsetY == 0f && scaleX == 1f && scaleY == 1f && rotation == 0f && !flipX && alpha >= 1f
+    }
+
     /** Duration + a strip of sampled frames, from a single [MediaMetadataRetriever] session —
      * see [loadPreview] for why this replaced separate firstFrame/durationMs/previewFrames calls. */
     data class Preview(val durationMs: Long, val frames: List<Pair<Long, Bitmap>>)
@@ -178,8 +195,13 @@ object VideoToWebp {
         overlayAt: (suspend (index: Int, timeMs: Long) -> Bitmap?)? = null,
         /** 0–1 as frames are done. */
         onProgress: (Float) -> Unit = {},
+        /** The clip moved/resized in the editor; null (or identity) = filling the sticker. */
+        placement: Placement? = null,
     ): ByteArray? {
         val mmr = MediaMetadataRetriever()
+        // A moved or shrunk clip leaves parts of the sticker uncovered, so those frames keep
+        // their transparency (and replace one another instead of blending).
+        val place = placement?.takeIf { !it.isIdentity }
         val frames = ArrayList<ByteArray>() // each = a full `VP8 ` sub-chunk (incl. padding)
         // Editor overlay (text/stickers/drawings) + adjustment matrix, applied to every frame.
         val ov = overlay?.let { if (it.width == SIZE && it.height == SIZE) it else Bitmap.createScaledBitmap(it, SIZE, SIZE, true) }
@@ -199,15 +221,16 @@ object VideoToWebp {
             val target = decodeSizeFor(mmr)
             for (i in 0 until count) {
                 val full = frameAt(mmr, (from + i * stepMs) * 1000L, target) ?: continue
-                val square = squareOpaque(full, cf)
+                val opaque = squareOpaque(full, cf)
                 full.recycle()
+                val square = if (place != null) placeFrame(opaque, place).also { opaque.recycle() } else opaque
                 val frameOverlay = overlayAt?.invoke(i, i.toLong() * stepMs)?.let {
                     if (it.width == SIZE && it.height == SIZE) it else Bitmap.createScaledBitmap(it, SIZE, SIZE, true)
                 } ?: ov
                 if (frameOverlay != null) Canvas(square).drawBitmap(frameOverlay, 0f, 0f, null)
                 val still = compressWebp(square, QUALITY)
                 square.recycle()
-                extractBitstreamChunk(still)?.let { frames.add(it) }
+                (if (place != null) extractFrameData(still) else extractBitstreamChunk(still))?.let { frames.add(it) }
                 onProgress((i + 1f) / count)
             }
         } catch (e: Exception) {
@@ -222,7 +245,7 @@ object VideoToWebp {
         var keep: List<ByteArray> = frames
         var durMs = 1000 / FPS
         while (true) {
-            val out = mux(keep, durMs)
+            val out = mux(keep, durMs, alpha = place != null)
             if (out.size <= maxBytes || keep.size <= 6) return out
             keep = keep.filterIndexed { idx, _ -> idx % 2 == 0 }
             durMs *= 2
@@ -286,6 +309,22 @@ object VideoToWebp {
             .getOrNull()?.let { return it }
         return runCatching { mmr.getFrameAtTime(timeUs, MediaMetadataRetriever.OPTION_PREVIOUS_SYNC) }
             .getOrNull()
+    }
+
+    /** [frame] (the 512² clip frame) drawn where [p] puts it on a fresh 512² sticker canvas —
+     * the same transform the editor's canvas shows: translate, rotate, scale/mirror, fade. */
+    private fun placeFrame(frame: Bitmap, p: Placement): Bitmap {
+        val out = Bitmap.createBitmap(SIZE, SIZE, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(out)
+        p.background?.let { canvas.drawColor(it) }
+        canvas.save()
+        canvas.translate(SIZE / 2f + p.offsetX * SIZE, SIZE / 2f + p.offsetY * SIZE)
+        canvas.rotate(p.rotation)
+        canvas.scale(p.scaleX * (if (p.flipX) -1f else 1f), p.scaleY)
+        val paint = Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG).apply { alpha = (p.alpha.coerceIn(0f, 1f) * 255).toInt() }
+        canvas.drawBitmap(frame, -frame.width / 2f, -frame.height / 2f, paint)
+        canvas.restore()
+        return out
     }
 
     /** Center-crop to square and scale to 512×512 on an opaque (black) canvas, optionally recolored. */
