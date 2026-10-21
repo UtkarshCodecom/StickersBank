@@ -137,7 +137,9 @@ fun CanvasTemplatesScreen(nav: NavHostController) {
         // Start from nothing instead of a template: a quick shape choice, then an empty canvas.
         var showNewCanvas by remember { mutableStateOf(false) }
         var showAllSizes by remember { mutableStateOf(false) }
-        CreateCanvasButton(Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 12.dp)) { showNewCanvas = true }
+        // "New Project" → the quick shape sheet; the gold button → every size (YouTube, reels…).
+        NewProjectButton(Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 10.dp)) { showNewCanvas = true }
+        CreateCanvasButton(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 12.dp)) { showAllSizes = true }
         fun openBlank(ratio: Float) {
             // Own canvas → ad after the shape is chosen. Admin templates open ad-free.
             showAd { nav.navigate(Routes.templateEditor(blankCanvasId(ratio))) }
@@ -198,8 +200,29 @@ fun CanvasTemplatesScreen(nav: NavHostController) {
     }
 }
 
+/** "New Project": opens the quick shape sheet ([NewProjectSheet]) — Portrait, Story, Square,
+ * Landscape. Sits above the gold button, which has the full size catalog. */
+@Composable
+private fun NewProjectButton(modifier: Modifier, onClick: () -> Unit) {
+    Row(
+        modifier.fillMaxWidth().neuRaised(cornerRadius = 16.dp, elevation = 6.dp).clip(RoundedCornerShape(16.dp))
+            .clickable(onClick = onClick).padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).background(Gold),
+            contentAlignment = Alignment.Center,
+        ) { Icon(Icons.Rounded.Add, null, tint = OnGold, modifier = Modifier.size(24.dp)) }
+        Column(Modifier.weight(1f).padding(start = 12.dp)) {
+            Text("New Project", color = AppOnSurface, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            Text("Portrait, Story, Square or Landscape", color = AppOnSurfaceMuted, fontSize = 12.sp)
+        }
+        Icon(Icons.AutoMirrored.Rounded.ArrowForward, null, tint = Gold, modifier = Modifier.size(18.dp))
+    }
+}
+
 /** The gold "Create your canvas" button at the top of Canvas — the Create tab's hero, in a
- * slimmer row so the templates below stay in view. */
+ * slimmer row so the templates below stay in view. Opens the full size catalog ([NewCanvasPicker]). */
 @Composable
 private fun CreateCanvasButton(modifier: Modifier, onClick: () -> Unit) {
     val display = com.stickers.bank.ui.theme.rememberDisplayFont()
@@ -215,7 +238,7 @@ private fun CreateCanvasButton(modifier: Modifier, onClick: () -> Unit) {
         ) { Icon(Icons.Rounded.Add, null, tint = Gold, modifier = Modifier.size(28.dp)) }
         Column(Modifier.weight(1f).padding(start = 14.dp)) {
             Text("CREATE YOUR CANVAS", color = OnGold, fontFamily = display, fontSize = 22.sp, lineHeight = 24.sp, letterSpacing = 0.5.sp)
-            Text("Pick a shape, start from a blank canvas.", color = OnGold.copy(alpha = 0.72f), fontSize = 12.sp)
+            Text("Every size — YouTube, reels, posts, print…", color = OnGold.copy(alpha = 0.72f), fontSize = 12.sp)
         }
         Box(
             Modifier.size(38.dp).clip(androidx.compose.foundation.shape.CircleShape).background(AppBackground),
@@ -239,6 +262,7 @@ private val QUICK_RATIOS = listOf(
     QuickRatio("Portrait", "3:4", 3f / 4f),
     QuickRatio("Story", "9:16", 9f / 16f),
     QuickRatio("Square", "1:1", 1f),
+    QuickRatio("Landscape", "1.91:1", 1.91f),
     QuickRatio("Landscape", "16:9", 16f / 9f),
 )
 
