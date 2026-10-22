@@ -902,65 +902,70 @@ fun EditorScreen(nav: NavHostController, stickerId: String?, animated: Boolean) 
     }
 
     Column(Modifier.fillMaxSize()) {
-        // Top bar: back on the left, the Sticker / Animation switch in the MIDDLE (bigger, the
-        // main choice on this screen), Done on the right.
-        Box(
-            Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 2.dp),
-        ) {
-            Box(Modifier.align(Alignment.CenterStart)) {
+        // Top bar: back + EDITOR on the left, the Sticker / Animation switch in the middle (big,
+        // the main choice on this screen), Done on the right. On a narrower phone the title and
+        // switch step down a size so the four never overlap.
+        BoxWithConstraints(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 2.dp)) {
+            val compact = maxWidth < 400.dp
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 IconButtonRound(Icons.AutoMirrored.Rounded.ArrowBack) { nav.popBackStack() }
-            }
-            // Sticker / Animation switch. Selected side shows its label.
-            // Locked only by what can't cross between the modes: a saved sticker being edited
-            // keeps its kind, and a video or an animated sticker can't go into a still. A photo,
-            // text, stickers and drawings work in both, so they no longer lock it.
-            val lockReason = when {
-                stickerId != null -> "You're editing a saved ${if (animated) "animation" else "sticker"}, so its type can't change."
-                videoUri != null -> "Delete the video first to switch to Sticker mode."
-                hasAnimatedItems -> "Remove the animated stickers first to switch to Sticker mode."
-                else -> null
-            }
-            val modeLocked = lockReason != null
-            fun switchMode(toAnim: Boolean) {
-                if (toAnim == isAnim) return
-                if (lockReason != null) Toast.makeText(context, lockReason, Toast.LENGTH_LONG).show()
-                else isAnim = toAnim
-            }
-            Row(
-                Modifier.align(Alignment.Center)
-                    .neuRaised(cornerRadius = 50.dp, elevation = 7.dp).clip(RoundedCornerShape(50)).padding(4.dp),
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                // Always tappable, so a locked switch can explain itself instead of ignoring taps.
-                ModeSwitchBtn("Sticker", Icons.Rounded.Image, !isAnim, dimmed = modeLocked) { switchMode(false) }
-                ModeSwitchBtn("Animation", Icons.Rounded.Movie, isAnim, dimmed = modeLocked) { switchMode(true) }
-            }
-            // Dimmed in Animation mode until there's a video or an animated sticker — a photo,
-            // text or drawing alone can't make an animation. A tap still says why.
-            val doneReady = !isAnim || videoUri != null || hasAnimatedItems
-            PillButton(
-                "Done", Icons.Rounded.Check, filled = true,
-                modifier = Modifier.align(Alignment.CenterEnd).padding(end = 4.dp).graphicsLayer { alpha = if (doneReady) 1f else 0.4f },
-                onClick = {
-                    if (isAnim) {
-                        if (!doneReady) {
-                            Toast.makeText(
-                                context,
-                                if (animNeedsMotion) "A photo alone doesn't save as an animation. Add a video or an animated sticker."
-                                else "Add a video or an animated sticker first",
-                                Toast.LENGTH_LONG,
-                            ).show()
+                Text(
+                    "EDITOR", color = Gold, fontSize = if (compact) 15.sp else 18.sp, fontWeight = FontWeight.Black,
+                    letterSpacing = 1.sp, modifier = Modifier.padding(start = 2.dp),
+                )
+                Spacer(Modifier.weight(1f))
+                // Sticker / Animation switch. Selected side shows its label.
+                // Locked only by what can't cross between the modes: a saved sticker being edited
+                // keeps its kind, and a video or an animated sticker can't go into a still. A photo,
+                // text, stickers and drawings work in both, so they no longer lock it.
+                val lockReason = when {
+                    stickerId != null -> "You're editing a saved ${if (animated) "animation" else "sticker"}, so its type can't change."
+                    videoUri != null -> "Delete the video first to switch to Sticker mode."
+                    hasAnimatedItems -> "Remove the animated stickers first to switch to Sticker mode."
+                    else -> null
+                }
+                val modeLocked = lockReason != null
+                fun switchMode(toAnim: Boolean) {
+                    if (toAnim == isAnim) return
+                    if (lockReason != null) Toast.makeText(context, lockReason, Toast.LENGTH_LONG).show()
+                    else isAnim = toAnim
+                }
+                Row(
+                    Modifier.neuRaised(cornerRadius = 50.dp, elevation = 7.dp).clip(RoundedCornerShape(50)).padding(4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    // Always tappable, so a locked switch can explain itself instead of ignoring taps.
+                    ModeSwitchBtn("Sticker", Icons.Rounded.Image, !isAnim, dimmed = modeLocked, compact = compact) { switchMode(false) }
+                    ModeSwitchBtn("Animation", Icons.Rounded.Movie, isAnim, dimmed = modeLocked, compact = compact) { switchMode(true) }
+                }
+                Spacer(Modifier.weight(1f))
+                // Dimmed in Animation mode until there's a video or an animated sticker — a photo,
+                // text or drawing alone can't make an animation. A tap still says why.
+                val doneReady = !isAnim || videoUri != null || hasAnimatedItems
+                PillButton(
+                    "Done", Icons.Rounded.Check, filled = true,
+                    modifier = Modifier.padding(end = 4.dp).graphicsLayer { alpha = if (doneReady) 1f else 0.4f },
+                    onClick = {
+                        if (isAnim) {
+                            if (!doneReady) {
+                                Toast.makeText(
+                                    context,
+                                    if (animNeedsMotion) "A photo alone doesn't save as an animation. Add a video or an animated sticker."
+                                    else "Add a video or an animated sticker first",
+                                    Toast.LENGTH_LONG,
+                                ).show()
+                            } else showAd { showSaveDialog = true }
+                        } else if (base == null && items.isEmpty() && drawStrokes.isEmpty()) {
+                            Toast.makeText(context, "Add an image, text or drawing first", Toast.LENGTH_SHORT).show()
                         } else showAd { showSaveDialog = true }
-                    } else if (base == null && items.isEmpty() && drawStrokes.isEmpty()) {
-                        Toast.makeText(context, "Add an image, text or drawing first", Toast.LENGTH_SHORT).show()
-                    } else showAd { showSaveDialog = true }
-                },
-            )
+                    },
+                )
+            }
         }
 
         // Undo/redo on the left, Reset-everything on the right. The top bar above is already
-        // full (back + mode switch + Done), and this row had the space going spare.
+        // full (back + title + mode switch + Done), and this row had the space going spare.
         Row(
             Modifier.fillMaxWidth().padding(start = 8.dp, end = 8.dp, bottom = 6.dp, top = 0.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -1849,7 +1854,10 @@ private fun BoxScope.AddPhotoPlaceholder(isVideo: Boolean = false, onClick: () -
 @Composable
 private fun ModeSwitchBtn(
     label: String, icon: ImageVector, selected: Boolean, modifier: Modifier = Modifier,
-    dimmed: Boolean = false, onClick: () -> Unit,
+    dimmed: Boolean = false,
+    /** A size down, for narrower phones where the full size would crowd the top bar. */
+    compact: Boolean = false,
+    onClick: () -> Unit,
 ) {
     // Locked (see EditorScreen's `lockReason`): the non-selected side is dimmed, since a dimmed
     // `selected` side would look the same — the selected pill is already visually "on". Still
@@ -1858,14 +1866,14 @@ private fun ModeSwitchBtn(
     Row(
         modifier.clip(RoundedCornerShape(50)).background(if (selected) Gold else Color.Transparent)
             .clickable(onClick = onClick)
-            .padding(horizontal = if (selected) 16.dp else 12.dp, vertical = 11.dp),
+            .padding(horizontal = if (selected) (if (compact) 12.dp else 16.dp) else (if (compact) 9.dp else 12.dp), vertical = if (compact) 9.dp else 11.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(icon, label, tint = (if (selected) AppBackground else AppOnSurfaceMuted).copy(alpha = alpha), modifier = Modifier.size(21.dp))
+        Icon(icon, label, tint = (if (selected) AppBackground else AppOnSurfaceMuted).copy(alpha = alpha), modifier = Modifier.size(if (compact) 18.dp else 21.dp))
         if (selected) {
             Text(
-                label, color = OnGold, fontSize = 14.sp, fontWeight = FontWeight.Bold,
-                letterSpacing = 0.3.sp, modifier = Modifier.padding(start = 7.dp),
+                label, color = OnGold, fontSize = if (compact) 12.sp else 14.sp, fontWeight = FontWeight.Bold,
+                letterSpacing = 0.3.sp, modifier = Modifier.padding(start = if (compact) 5.dp else 7.dp),
             )
         }
     }
