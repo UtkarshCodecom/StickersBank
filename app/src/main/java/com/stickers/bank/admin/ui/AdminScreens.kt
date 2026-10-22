@@ -477,13 +477,16 @@ private fun AdminList(loading: Boolean, empty: Boolean, emptyMsg: String, conten
 
 private data class RatioOption(val label: String, val value: Float)
 
+// The first five are the app's own New Project shapes (Canvas tab), so a template row can match
+// exactly what users start their own canvases in; the rest follow.
 private val TEMPLATE_RATIO_OPTIONS = listOf(
     RatioOption("Square — 1:1", 1f),
     RatioOption("Portrait — 4:5", 0.8f),
     RatioOption("Portrait — 3:4", 0.75f),
+    RatioOption("Story — 9:16", 0.5625f),
+    RatioOption("Landscape — 1.91:1", 1.91f),
     RatioOption("Portrait — 2:3", 0.6667f),
     RatioOption("Portrait — 1:2", 0.5f),
-    RatioOption("Story / Reel — 9:16", 0.5625f),
     RatioOption("Landscape — 16:9", 1.7778f),
     RatioOption("Landscape — 4:3", 1.3333f),
     RatioOption("Landscape — 3:2", 1.5f),
