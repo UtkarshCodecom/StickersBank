@@ -39,14 +39,21 @@ object Ads {
 
     // Shared by every full-screen format (this interstitial and [AppOpenAds]), so two are never
     // stacked or shown back to back.
-    // At most one full-screen ad every 3 minutes, whatever the user does.
-    private const val COOLDOWN_MS = 3 * 60 * 1000L
+    // Kept well below the content people come for (AdMob: never "more ads than content"):
+    // nothing in the first [WARMUP_MS] after the app opens, then at most one full-screen ad
+    // every [COOLDOWN_MS], whatever the user does.
+    private const val WARMUP_MS = 2 * 60 * 1000L
+    private const val COOLDOWN_MS = 5 * 60 * 1000L
+    private val startedAt = android.os.SystemClock.elapsedRealtime()
     private var showingFullScreen = false
     private var lastFullScreenEndedAt = 0L
 
-    fun canShowFullScreen(): Boolean =
-        !showingFullScreen &&
-            (lastFullScreenEndedAt == 0L || android.os.SystemClock.elapsedRealtime() - lastFullScreenEndedAt >= COOLDOWN_MS)
+    fun canShowFullScreen(): Boolean {
+        val now = android.os.SystemClock.elapsedRealtime()
+        return !showingFullScreen &&
+            now - startedAt >= WARMUP_MS &&
+            (lastFullScreenEndedAt == 0L || now - lastFullScreenEndedAt >= COOLDOWN_MS)
+    }
 
     fun fullScreenStarted() { showingFullScreen = true }
 

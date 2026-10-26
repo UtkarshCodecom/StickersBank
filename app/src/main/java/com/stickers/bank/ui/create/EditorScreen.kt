@@ -799,6 +799,8 @@ fun EditorScreen(nav: NavHostController, stickerId: String?, animated: Boolean) 
             // Stay in the editor after saving — the user keeps their canvas and only leaves
             // when they press back. (Was popping straight out before.)
             Toast.makeText(context, "Sticker saved to My Stickers", Toast.LENGTH_SHORT).show()
+            // The ad comes AFTER the save is done (it used to sit in front of the save dialog).
+            showAd { }
         }
     }
 
@@ -893,6 +895,7 @@ fun EditorScreen(nav: NavHostController, stickerId: String?, animated: Boolean) 
             saveProgress = null
             // Stay in the editor after saving (see saveSticker).
             Toast.makeText(context, "Animated sticker saved", Toast.LENGTH_SHORT).show()
+            showAd { }
         }
     }
 
@@ -955,10 +958,10 @@ fun EditorScreen(nav: NavHostController, stickerId: String?, animated: Boolean) 
                                     else "Add a video or an animated sticker first",
                                     Toast.LENGTH_LONG,
                                 ).show()
-                            } else showAd { showSaveDialog = true }
+                            } else showSaveDialog = true
                         } else if (base == null && items.isEmpty() && drawStrokes.isEmpty()) {
                             Toast.makeText(context, "Add an image, text or drawing first", Toast.LENGTH_SHORT).show()
-                        } else showAd { showSaveDialog = true }
+                        } else showSaveDialog = true
                     },
                 )
             }

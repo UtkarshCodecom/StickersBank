@@ -703,15 +703,15 @@ private fun CanvasTemplateEditorContent(
             Toast.makeText(
                 context, if (ok) "Saved to your gallery" else "Couldn't save to the gallery", Toast.LENGTH_SHORT,
             ).show()
-            if (ok) { committed = true; nav.popBackStack() }
+            // The ad comes once the canvas is safely saved, then back out.
+            if (ok) { committed = true; showAd { nav.popBackStack() } }
         }
     }
 
     fun exportToGallery() {
         if (exporting) return
         exporting = true
-        // Ad first (admin template or own canvas alike), then the actual save.
-        showAd { saveFlattenedToGallery() }
+        saveFlattenedToGallery()
     }
 
     /**
