@@ -186,6 +186,10 @@ private fun NavGraphBuilder.appGraph(nav: NavHostController) {
         com.stickers.bank.ui.featured.TrendingResultsScreen(nav, entry.arguments?.getString("id").orEmpty())
     }
     composable(Routes.TRENDING_ALL) { com.stickers.bank.ui.featured.TrendingAllScreen(nav) }
+    composable(Routes.PACKS) { com.stickers.bank.ui.packs.PacksScreen(nav) }
+    composable(Routes.PACK) { entry ->
+        com.stickers.bank.ui.packs.PackDetailScreen(nav, entry.arguments?.getString("id").orEmpty())
+    }
     composable(Routes.TEMPLATE_CATEGORY) { entry ->
         com.stickers.bank.ui.templates.TemplateCategoryScreen(
             nav,
@@ -241,5 +245,7 @@ private fun analyticsScreenName(route: String?): String? = when (route) {
     Routes.TRENDING_ALL -> "trendingAll"
     Routes.FAVORITES -> "favorites"
     Routes.MY_STICKERS -> "myStickers"
+    Routes.PACKS -> "packs"
+    Routes.PACK -> "pack"
     else -> null
 }

@@ -123,6 +123,17 @@ data class CustomFont(
  * A standalone Trending card shown on Featured — NOT tied to a real category/collection. The
  * admin gives it its own title + portrait (3:5) image and hand-picks which stickers it opens.
  */
+/**
+ * An admin-curated pack (Featured → Packs): a name and a hand-picked set of stickers, kept
+ * all-still or all-animated so it goes to WhatsApp as one pack of its kind.
+ */
+data class Pack(
+    val id: String,
+    val name: String,
+    val animated: Boolean = false,
+    val stickerIds: List<String> = emptyList(),
+)
+
 data class TrendingCard(
     val id: String,
     val title: String,

@@ -41,6 +41,11 @@ object Routes {
     fun templateCategory(name: String) = "template_category/${android.net.Uri.encode(name)}"
     const val TEMPLATE_CATEGORY = "template_category/{name}"
 
+    // Admin-curated packs, Stickers / Animations (opened from the Packs button on Featured).
+    const val PACKS = "packs"
+    fun pack(id: String) = "pack/$id"
+    const val PACK = "pack/{id}"
+
     // Every Trending card at once (opened from the "See all" button on Featured).
     const val TRENDING_ALL = "trending_all"
 

@@ -24,6 +24,7 @@ export default function App() {
   const [showFonts, setShowFonts] = useState(false);
   const [showBanners, setShowBanners] = useState(false);
   const [showTrending, setShowTrending] = useState(false);
+  const [showPacks, setShowPacks] = useState(false);
   const [showTags, setShowTags] = useState(false);
   const [showTemplates, setShowTemplates] = useState(false);
   const [showPageBackgrounds, setShowPageBackgrounds] = useState(false);
@@ -78,6 +79,20 @@ export default function App() {
           </div>
         </header>
         <TrendingManager onClose={() => setShowTrending(false)} />
+      </div>
+    );
+  }
+
+  if (showPacks) {
+    return (
+      <div className="app">
+        <header>
+          <div className="header-title">
+            <h1>STICKERS <span>BANK</span></h1>
+            <div className="sub">Admin — Packs</div>
+          </div>
+        </header>
+        <PacksManager onClose={() => setShowPacks(false)} />
       </div>
     );
   }
@@ -245,6 +260,7 @@ export default function App() {
           <button className="primary" onClick={() => setShowEditor(true)}>🎨 Editor</button>
           <button className="primary" onClick={() => setShowBanners(true)}>🖼 Banners</button>
           <button className="primary" onClick={() => setShowTrending(true)}>🔥 Trending</button>
+          <button className="primary" onClick={() => setShowPacks(true)}>📦 Packs</button>
           <button className="primary" onClick={() => setShowTags(true)}>🏷 Popular Tags</button>
           <button className="primary" onClick={() => setShowPageBackgrounds(true)}>🎨 Page Backgrounds</button>
           <button className="primary" onClick={() => setShowDecorations(true)}>🕶 Decorations</button>
@@ -867,6 +883,181 @@ function TagThemePicker({ value, onChange }) {
         />
       </label>
     </div>
+  );
+}
+
+/**
+ * Packs — ready-made packs shown in the app under Featured → Packs, in two tabs (Stickers /
+ * Animations). A pack is one kind only, like a WhatsApp pack: the picker shows just that kind.
+ */
+function PacksManager({ onClose }) {
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [busyId, setBusyId] = useState('');
+  const [error, setError] = useState('');
+
+  const [editingId, setEditingId] = useState(null);
+  const [name, setName] = useState('');
+  const [animated, setAnimated] = useState(false);
+  // Insertion-ordered, so the pack keeps the order stickers were picked in.
+  const [selected, setSelected] = useState([]);
+  const [saving, setSaving] = useState(false);
+  const [formMsg, setFormMsg] = useState('');
+  const formRef = useRef(null);
+
+  const [allStickers, setAllStickers] = useState([]);
+  const [pickerQuery, setPickerQuery] = useState('');
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    try { setItems(await api.listPacks()); }
+    catch (e) { setError(e.message); }
+    setLoading(false);
+  }, []);
+  useEffect(() => { load(); }, [load]);
+  useEffect(() => { api.listAllStickers().then(setAllStickers); }, []);
+
+  const byId = useMemo(() => Object.fromEntries(allStickers.map((s) => [s.id, s])), [allStickers]);
+  const q = pickerQuery.trim().toLowerCase().replace(/^#/, '');
+  const pickable = allStickers.filter((s) => !!s.animated === animated)
+    .filter((s) => !q || (s.tags || []).some((t) => t.includes(q)));
+
+  function toggleSticker(id) {
+    setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  }
+
+  function switchKind(nextAnimated) {
+    if (nextAnimated === animated) return;
+    setAnimated(nextAnimated);
+    // A pack is one kind only — drop picks of the other kind.
+    setSelected((prev) => prev.filter((id) => !!byId[id]?.animated === nextAnimated));
+  }
+
+  function resetForm() {
+    setEditingId(null); setName(''); setAnimated(false); setSelected([]); setPickerQuery('');
+  }
+
+  function startEdit(p) {
+    setEditingId(p.id);
+    setName(p.name || '');
+    setAnimated(!!p.animated);
+    setSelected(p.stickerIds || []);
+    setPickerQuery('');
+    setFormMsg('');
+    formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  async function savePack() {
+    if (!name.trim() || selected.length === 0) return;
+    setSaving(true); setFormMsg('');
+    try {
+      const data = { name: name.trim(), animated, stickerIds: selected };
+      if (editingId) await api.updatePack(editingId, data);
+      else await api.addPack(data);
+      resetForm();
+      await load();
+      setFormMsg(editingId ? '✓ Pack updated.' : '✓ Pack created.');
+    } catch (e) { setFormMsg(`✗ ${e.message}`); }
+    setSaving(false);
+  }
+
+  async function removeOne(p) {
+    if (!window.confirm(`Delete the pack "${p.name}"? Its stickers stay in the catalog.`)) return;
+    setBusyId(p.id);
+    try { await api.deletePack(p.id); await load(); }
+    catch (e) { setError(e.message); }
+    setBusyId('');
+  }
+
+  async function move(i, dir) {
+    const j = i + dir;
+    if (j < 0 || j >= items.length) return;
+    const arr = [...items];
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+    setItems(arr); // optimistic
+    try { await api.saveOrder('packs', arr); }
+    catch (e) { setError(e.message); load(); }
+  }
+
+  const thumb = (s, size) => (s?.imageUrl?.endsWith('.mp4')
+    ? <video src={s.imageUrl} muted style={{ width: size, height: size, objectFit: 'contain' }} />
+    : <img src={s?.imageUrl} alt="" style={{ width: size, height: size, objectFit: 'contain' }} />);
+
+  return (
+    <section className="card">
+      <div className="card-head">
+        <div>
+          <h2>Packs</h2>
+          <p className="hint">Ready-made packs shown in the app under Featured → Packs, in a Stickers or an Animations tab. Each pack holds one kind only (like a WhatsApp pack); 3–30 stickers makes one WhatsApp pack, bigger ones are split.</p>
+        </div>
+        <button className="link" onClick={onClose}>← Back to catalog</button>
+      </div>
+      {error && <div className="error">{error}</div>}
+
+      <h3 className="section">Packs ({items.length})</h3>
+      {loading ? <p className="muted">Loading…</p> : items.length === 0 ? (
+        <p className="muted">No packs yet — build one below.</p>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 18 }}>
+          {items.map((p, i) => (
+            <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#1c1c20', borderRadius: 10, padding: '9px 12px' }}>
+              <div className="reorder">
+                <button className="mv" title="Show earlier" disabled={i === 0} onClick={() => move(i, -1)}>▲</button>
+                <button className="mv" title="Show later" disabled={i === items.length - 1} onClick={() => move(i, 1)}>▼</button>
+              </div>
+              <div style={{ display: 'flex', gap: 4 }}>
+                {(p.stickerIds || []).slice(0, 4).map((id) => <span key={id}>{thumb(byId[id], 30)}</span>)}
+              </div>
+              <strong>{p.name}</strong>
+              <span className="muted small">{p.animated ? '🎞 Animations' : 'Stickers'} · {(p.stickerIds || []).length}</span>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginLeft: 'auto' }}>
+                <button className="link" onClick={() => startEdit(p)}>✎ Edit</button>
+                <button className="del" disabled={busyId === p.id} onClick={() => removeOne(p)}>✕</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <h3 className="section" ref={formRef}>{editingId ? `Editing "${name}"` : 'Create a pack'}</h3>
+      {editingId && <button className="link" style={{ marginBottom: 10 }} onClick={resetForm}>✕ Cancel edit, start a new pack</button>}
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+        <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Pack name (e.g. Good Morning)" style={{ flex: '1 1 240px' }} />
+        <div style={{ display: 'flex', gap: 6 }}>
+          <button className={animated ? '' : 'primary'} onClick={() => switchKind(false)}>Stickers</button>
+          <button className={animated ? 'primary' : ''} onClick={() => switchKind(true)}>🎞 Animations</button>
+        </div>
+      </div>
+
+      <p className="muted small" style={{ marginTop: 12 }}>
+        Pick the {animated ? 'animations' : 'stickers'} in this pack — {selected.length} selected
+        {selected.length > 0 && selected.length < 3 ? ' (WhatsApp needs at least 3)' : ''}
+      </p>
+      <input value={pickerQuery} onChange={(e) => setPickerQuery(e.target.value)} placeholder="Filter by tag…" style={{ width: '100%', marginBottom: 8 }} />
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(70px, 1fr))', gap: 8, maxHeight: 320, overflowY: 'auto', background: '#111114', borderRadius: 10, padding: 8 }}>
+        {pickable.map((s) => {
+          const n = selected.indexOf(s.id);
+          return (
+            <div
+              key={s.id}
+              onClick={() => toggleSticker(s.id)}
+              style={{ position: 'relative', aspectRatio: 1, borderRadius: 8, overflow: 'hidden', cursor: 'pointer', background: '#1c1c20', outline: n >= 0 ? '2px solid var(--gold)' : 'none' }}
+            >
+              {thumb(s, '100%')}
+              {n >= 0 && (
+                <div style={{ position: 'absolute', inset: 0, background: 'rgba(245,179,1,0.28)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, fontWeight: 800, color: '#fff' }}>{n + 1}</div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {formMsg && <p className={formMsg.startsWith('✗') ? 'error' : 'hint'} style={{ marginTop: 8 }}>{formMsg}</p>}
+      <button className="primary" style={{ marginTop: 12 }} disabled={!name.trim() || selected.length === 0 || saving} onClick={savePack}>
+        {saving ? 'Saving…' : editingId ? 'Save pack' : 'Create pack'}
+      </button>
+    </section>
   );
 }
 

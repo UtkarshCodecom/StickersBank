@@ -83,6 +83,10 @@ class CatalogRepository(context: Context) {
     private val _trending = MutableStateFlow<List<TrendingCard>>(emptyList())
     val trending: StateFlow<List<TrendingCard>> = _trending.asStateFlow()
 
+    /** Admin-curated packs ("packs" collection), in admin order — Featured → Packs. */
+    private val _packs = MutableStateFlow<List<com.stickers.bank.data.model.Pack>>(emptyList())
+    val packs: StateFlow<List<com.stickers.bank.data.model.Pack>> = _packs.asStateFlow()
+
     /** Admin-curated tags shown as pills on Featured ("popularTags" collection). */
     private val _popularTags = MutableStateFlow<List<PopularTag>>(emptyList())
     val popularTags: StateFlow<List<PopularTag>> = _popularTags.asStateFlow()
@@ -230,6 +234,21 @@ class CatalogRepository(context: Context) {
                         )
                     }
             }.onSuccess { _trending.value = it }
+        }
+        // Packs (admin-curated, still or animated).
+        scope.launch {
+            runCatching {
+                db.collection("packs").get().await().documents
+                    .sortedBy { it.getLong("order") ?: 0L }
+                    .mapNotNull { d ->
+                        val name = d.getString("name")?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
+                        @Suppress("UNCHECKED_CAST")
+                        val ids = (d.get("stickerIds") as? List<Any?>)?.filterIsInstance<String>() ?: emptyList()
+                        com.stickers.bank.data.model.Pack(
+                            id = d.id, name = name, animated = d.getBoolean("animated") ?: false, stickerIds = ids,
+                        )
+                    }
+            }.onSuccess { _packs.value = it }
         }
         // Popular tags (admin-curated).
         scope.launch {

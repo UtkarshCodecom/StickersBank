@@ -44,6 +44,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.GridView
+import androidx.compose.material.icons.rounded.Inventory2
 import androidx.compose.material.icons.rounded.ViewAgenda
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -321,6 +322,7 @@ fun FeaturedScreen(nav: NavHostController) {
                             onTrendingClick = { card -> nav.navigate(Routes.trending(card.id)) },
                             onTagClick = { tag -> nav.navigate(Routes.tag(tag)) },
                             onSeeAllTrending = { nav.navigate(Routes.TRENDING_ALL) },
+                            onOpenPacks = { nav.navigate(Routes.PACKS) },
                         )
                     }
                     if (FeaturedSearch.gridCategories) {
@@ -424,7 +426,7 @@ fun FeaturedScreen(nav: NavHostController) {
  * elevation, so the pressed one gets that same padding first.
  */
 @Composable
-private fun SearchKindTabs(selected: Int, stillCount: Int, animCount: Int, onSelect: (Int) -> Unit) {
+internal fun SearchKindTabs(selected: Int, stillCount: Int, animCount: Int, onSelect: (Int) -> Unit) {
     Row(
         Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 2.dp),
         horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -728,6 +730,21 @@ private fun openBannerLink(context: android.content.Context, link: String) {
     }
 }
 
+/** Opens the admin's Packs (Stickers / Animations), sitting left of the layout toggle — same
+ * raised pill and height as the toggle, so the two read as one control strip. */
+@Composable
+private fun PacksButton(onClick: () -> Unit) {
+    Row(
+        Modifier.neuRaised(cornerRadius = 50.dp, elevation = 6.dp).clip(RoundedCornerShape(50)).padding(4.dp)
+            .clip(RoundedCornerShape(50)).background(Gold).clickable(onClick = onClick)
+            .height(40.dp).padding(horizontal = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(Icons.Rounded.Inventory2, null, tint = AppBackground, modifier = Modifier.size(18.dp))
+        Text("PACKS", color = AppBackground, fontWeight = FontWeight.Black, fontSize = 12.sp, letterSpacing = 1.sp, modifier = Modifier.padding(start = 6.dp))
+    }
+}
+
 @Composable
 private fun LayoutToggle(grid: Boolean, onChange: (Boolean) -> Unit) {
     Row(
@@ -901,6 +918,7 @@ private fun FeaturedHeader(
     onTrendingClick: (TrendingCard) -> Unit,
     onTagClick: (String) -> Unit,
     onSeeAllTrending: () -> Unit,
+    onOpenPacks: () -> Unit,
 ) {
     Column(Modifier.fillMaxWidth()) {
         BannerCarousel(banners, bannerDisplayMode)
@@ -990,6 +1008,8 @@ private fun FeaturedHeader(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text("CATEGORIES", color = Gold, fontSize = 11.sp, letterSpacing = 1.5.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+            PacksButton(onOpenPacks)
+            Spacer(Modifier.width(8.dp))
             LayoutToggle(FeaturedSearch.gridCategories) { FeaturedSearch.gridCategories = it }
         }
     }

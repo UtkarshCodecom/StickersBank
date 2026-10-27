@@ -406,6 +406,26 @@ export const updateTrendingCard = (id, data) => updateDoc(doc(db, 'trending', id
 export const setTrendingBadge = (id, badge) => updateDoc(doc(db, 'trending', id), { badge });
 export const deleteTrending = (id) => deleteDoc(doc(db, 'trending', id));
 
+/**
+ * Packs — admin-curated packs in the app (Featured → Packs). Each is all-still or all-animated
+ * ({ animated }), with a hand-picked, ordered list of stickerIds.
+ */
+export async function listPacks() {
+  const snap = await getDocs(query(collection(db, 'packs'), orderBy('order')));
+  return rows(snap);
+}
+export async function addPack({ name, animated, stickerIds }) {
+  await addDoc(collection(db, 'packs'), {
+    name: name.trim(),
+    animated: !!animated,
+    stickerIds: stickerIds || [],
+    order: orderVal(),
+    createdAt: nowMs(),
+  });
+}
+export const updatePack = (id, data) => updateDoc(doc(db, 'packs', id), data);
+export const deletePack = (id) => deleteDoc(doc(db, 'packs', id));
+
 /* ---------------- Popular tags (pills on Featured) ---------------- */
 
 export async function listPopularTags() {
