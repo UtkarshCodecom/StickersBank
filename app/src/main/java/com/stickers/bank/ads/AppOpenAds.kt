@@ -28,11 +28,11 @@ object AppOpenAds : Application.ActivityLifecycleCallbacks {
 
     private val unitId: String get() = if (BuildConfig.DEBUG) TEST_UNIT_ID else REAL_UNIT_ID
 
-    // A real return — half an hour away — and at most one app-open ad every few hours, so it
-    // stays an occasional "welcome back", not something seen on every switch back to the app.
-    private const val MIN_AWAY_MS = 30 * 60 * 1000L
-    private const val MIN_BETWEEN_SHOWS_MS = 4 * 60 * 60 * 1000L
-    private var lastShownAt = 0L
+    // A real return — an hour away — and at most one app-open ad every 12 hours (remembered
+    // across restarts), so it stays an occasional "welcome back". It also counts towards the
+    // daily cap every full-screen ad shares (see Ads).
+    private const val MIN_AWAY_MS = 60 * 60 * 1000L
+    private const val MIN_BETWEEN_SHOWS_MS = 12 * 60 * 60 * 1000L
     // AdMob's guidance: an app-open ad more than 4 hours old may no longer be valid.
     private const val MAX_AD_AGE_MS = 4 * 60 * 60 * 1000L
 
@@ -89,7 +89,8 @@ object AppOpenAds : Application.ActivityLifecycleCallbacks {
         // Only over the app itself — not the splash, the admin panel, or an ad's own activity.
         if (activity !is MainActivity) return
         if (!Ads.canShowFullScreen()) return
-        if (lastShownAt != 0L && SystemClock.elapsedRealtime() - lastShownAt < MIN_BETWEEN_SHOWS_MS) return
+        val last = Ads.lastAppOpenAt
+        if (last != 0L && System.currentTimeMillis() - last < MIN_BETWEEN_SHOWS_MS) return
         val ready = ad
         if (ready == null || SystemClock.elapsedRealtime() - loadedAt > MAX_AD_AGE_MS) {
             ad = null
@@ -97,7 +98,7 @@ object AppOpenAds : Application.ActivityLifecycleCallbacks {
             return
         }
         ad = null
-        lastShownAt = SystemClock.elapsedRealtime()
+        Ads.lastAppOpenAt = System.currentTimeMillis()
         Ads.fullScreenStarted()
         ready.fullScreenContentCallback = object : FullScreenContentCallback() {
             override fun onAdDismissedFullScreenContent() = finished()

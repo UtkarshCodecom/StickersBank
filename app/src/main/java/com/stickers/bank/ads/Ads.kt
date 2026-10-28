@@ -37,25 +37,49 @@ object Ads {
     private val main = android.os.Handler(android.os.Looper.getMainLooper())
     private var retries = 0
 
+    // ---- How often (AdMob: never "more ads than content") ----
     // Shared by every full-screen format (this interstitial and [AppOpenAds]), so two are never
-    // stacked or shown back to back.
-    // Kept well below the content people come for (AdMob: never "more ads than content"):
-    // nothing in the first [WARMUP_MS] after the app opens, then at most one full-screen ad
-    // every [COOLDOWN_MS], whatever the user does.
-    private const val WARMUP_MS = 2 * 60 * 1000L
-    private const val COOLDOWN_MS = 5 * 60 * 1000L
+    // stacked or shown back to back. All of these must hold:
+    //  - nothing in the first [WARMUP_MS] after the app opens;
+    //  - at least [COOLDOWN_MS] since the last full-screen ad ended;
+    //  - at most [MAX_PER_DAY] full-screen ads a day (kept across restarts);
+    //  - an interstitial only on every [BREAKS_PER_AD]th natural break (a pack sent, a sticker
+    //    saved, a canvas exported) — the first two of every three go by with no ad at all.
+    private const val WARMUP_MS = 3 * 60 * 1000L
+    private const val COOLDOWN_MS = 8 * 60 * 1000L
+    private const val MAX_PER_DAY = 4
+    private const val BREAKS_PER_AD = 3
     private val startedAt = android.os.SystemClock.elapsedRealtime()
     private var showingFullScreen = false
     private var lastFullScreenEndedAt = 0L
+    private var breaksSinceAd = 0
+
+    private val prefs get() = appContext?.getSharedPreferences("ads", Context.MODE_PRIVATE)
+    private fun today() = java.text.SimpleDateFormat("yyyyMMdd", java.util.Locale.US).format(java.util.Date())
+
+    /** Full-screen ads shown so far today. */
+    private fun shownToday(): Int {
+        val p = prefs ?: return 0
+        return if (p.getString("day", null) == today()) p.getInt("count", 0) else 0
+    }
 
     fun canShowFullScreen(): Boolean {
         val now = android.os.SystemClock.elapsedRealtime()
         return !showingFullScreen &&
             now - startedAt >= WARMUP_MS &&
-            (lastFullScreenEndedAt == 0L || now - lastFullScreenEndedAt >= COOLDOWN_MS)
+            (lastFullScreenEndedAt == 0L || now - lastFullScreenEndedAt >= COOLDOWN_MS) &&
+            shownToday() < MAX_PER_DAY
     }
 
-    fun fullScreenStarted() { showingFullScreen = true }
+    fun fullScreenStarted() {
+        showingFullScreen = true
+        prefs?.edit()?.putString("day", today())?.putInt("count", shownToday() + 1)?.apply()
+    }
+
+    /** When the last app-open ad was shown (wall clock, kept across restarts) — see [AppOpenAds]. */
+    var lastAppOpenAt: Long
+        get() = prefs?.getLong("app_open_at", 0L) ?: 0L
+        set(value) { prefs?.edit()?.putLong("app_open_at", value)?.apply() }
 
     fun fullScreenFinished() {
         showingFullScreen = false
@@ -114,12 +138,14 @@ object Ads {
      * Calls it immediately if no ad is ready. */
     fun show(activity: Activity?, onFinished: () -> Unit) {
         val ready = ad
-        // Not ready — or another full-screen ad (e.g. an app-open one) only just ended.
-        if (activity == null || ready == null || !canShowFullScreen()) {
+        breaksSinceAd++
+        // Not ready, not this break's turn (see BREAKS_PER_AD), or the limits above say no.
+        if (activity == null || ready == null || breaksSinceAd < BREAKS_PER_AD || !canShowFullScreen()) {
             load()
             onFinished()
             return
         }
+        breaksSinceAd = 0
         ad = null
         fullScreenStarted()
         var done = false
