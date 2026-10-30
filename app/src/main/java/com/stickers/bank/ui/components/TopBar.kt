@@ -71,8 +71,13 @@ import com.stickers.bank.ui.theme.OnGold
 import com.stickers.bank.ui.theme.neuInset
 import com.stickers.bank.ui.theme.neuRaised
 
+/** Whether long-pressing the logo opens the admin panel. Off in every build; set to true (or to
+ * BuildConfig.DEBUG for debug builds only) to bring it back. */
+private const val ADMIN_LONG_PRESS = false
+
 /**
- * Top header = wordmark (long-press = admin) + filter. The tab menu now floats at the bottom.
+ * Top header = wordmark + filter (long-press on the wordmark opens admin only if
+ * ADMIN_LONG_PRESS is on). The tab menu now floats at the bottom.
  * On Featured (showSearch), the row is always: wordmark (fixed 40% width, left) → search bar
  * (fills whatever's left, search icon INSIDE it on the left) → filter icon — the search bar is
  * just there from the start, plain and always usable, not something you have to tap an icon
@@ -81,11 +86,6 @@ import com.stickers.bank.ui.theme.neuRaised
  * blinking cursor doesn't linger once the keyboard's gone) instead of leaving the screen.
  */
 @OptIn(ExperimentalFoundationApi::class)
-
-/** Whether long-pressing the logo opens the admin panel. Off in every build; set to true (or to
- * BuildConfig.DEBUG for debug builds only) to bring it back. */
-private const val ADMIN_LONG_PRESS = false
-
 @Composable
 fun SbHomeTopBar(
     showFilter: Boolean = false,
