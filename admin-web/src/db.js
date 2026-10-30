@@ -36,10 +36,12 @@ const bySortOrder = (a, b) => (a.order || 0) - (b.order || 0);
  * upload order. The Android app uses the exact same rule (CatalogRepository.stickerOrder).
  */
 const hasPos = (s) => typeof s.position === 'number' && s.position >= 0;
+// Newly added stickers come FIRST (same as the app): not-yet-arranged ones lead, newest first,
+// then the arranged ones by position.
 export const byStickerOrder = (a, b) => {
-  if (hasPos(a) !== hasPos(b)) return hasPos(a) ? -1 : 1;
+  if (hasPos(a) !== hasPos(b)) return hasPos(a) ? 1 : -1;
   if (hasPos(a) && a.position !== b.position) return a.position - b.position;
-  return (a.createdAt || 0) - (b.createdAt || 0);
+  return (b.createdAt || 0) - (a.createdAt || 0);
 };
 
 /* ---------------- Categories (Hindi, English…) ---------------- */
@@ -425,6 +427,19 @@ export async function addPack({ name, animated, stickerIds }) {
 }
 export const updatePack = (id, data) => updateDoc(doc(db, 'packs', id), data);
 export const deletePack = (id) => deleteDoc(doc(db, 'packs', id));
+
+/**
+ * Search suggestions — the scrollable "try these" chips under the app's search bar. Tapping one
+ * searches it. The app shows a built-in starter set until at least one is added here.
+ */
+export async function listSearchSuggestions() {
+  const snap = await getDocs(query(collection(db, 'searchSuggestions'), orderBy('order')));
+  return rows(snap);
+}
+export async function addSearchSuggestion(term, order) {
+  await addDoc(collection(db, 'searchSuggestions'), { term: term.trim(), order: order ?? orderVal() });
+}
+export const deleteSearchSuggestion = (id) => deleteDoc(doc(db, 'searchSuggestions', id));
 
 /* ---------------- Popular tags (pills on Featured) ---------------- */
 

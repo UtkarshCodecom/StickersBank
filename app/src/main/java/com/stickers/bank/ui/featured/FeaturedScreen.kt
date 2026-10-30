@@ -86,6 +86,8 @@ import com.stickers.bank.data.model.PopularTag
 import com.stickers.bank.data.model.Sticker
 import com.stickers.bank.data.model.TrendingCard
 import com.stickers.bank.ui.Routes
+import androidx.compose.material.icons.rounded.Search
+import com.stickers.bank.ui.packs.matchesQuery
 import com.stickers.bank.ui.allstickers.comparator
 import com.stickers.bank.ui.components.AddToBankDialog
 import com.stickers.bank.ui.components.EmptyState
@@ -120,6 +122,8 @@ import kotlinx.coroutines.launch
  */
 object FeaturedSearch {
     var query by mutableStateOf("")
+    /** The top bar's search box has focus (set by TopBar) — the suggestion chips show then too. */
+    var focused by mutableStateOf(false)
     var gridCategories by mutableStateOf(false) // false = full-width rows, true = 2-col boxes
     fun clear() {
         query = ""
@@ -194,6 +198,15 @@ fun FeaturedScreen(nav: NavHostController) {
         if (!searching) emptyList() else canvasTemplates.filter { it.matchesQuery(query) }
     }
 
+    // Packs too: a pack's name, or the tags of the stickers in it.
+    val resolvedPacks = com.stickers.bank.ui.packs.rememberResolvedPacks()
+    val packHits = remember(resolvedPacks, query, searching) {
+        if (!searching) emptyList() else resolvedPacks.filter { it.matchesQuery(query) }
+    }
+    // Admin-set "try these" chips (a starter set until the admin adds their own).
+    val suggestions by ServiceLocator.catalogRepository.searchSuggestions.collectAsStateSafe()
+    val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
+
     var detail by remember { mutableStateOf<Sticker?>(null) }
     val selection = rememberStickerSelection()
     var showBankDialog by remember { mutableStateOf(false) }
@@ -223,6 +236,13 @@ fun FeaturedScreen(nav: NavHostController) {
     // Pad by the keyboard height, but subtract the nav-bar inset the Scaffold already applied
     // (otherwise the bar floats a nav-bar's height above the keyboard).
     Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.ime.exclude(WindowInsets.navigationBars))) {
+        // Tap-to-search chips, scrollable, while the search box is in use.
+        if ((FeaturedSearch.focused || searching) && suggestions.isNotEmpty()) {
+            SearchSuggestionRow(suggestions, query) { term ->
+                FeaturedSearch.query = term
+                focusManager.clearFocus()
+            }
+        }
         // Pull down anywhere in the feed to re-fetch the catalog — admin changes (new
         // categories, stickers, banners…) otherwise only showed up on ON_RESUME (see
         // StickersBankApp), i.e. only after actually leaving and reopening the app.
@@ -232,7 +252,7 @@ fun FeaturedScreen(nav: NavHostController) {
             modifier = Modifier.weight(1f).fillMaxWidth(),
         ) {
             when {
-                searching && results.isEmpty() && templateHits.isEmpty() ->
+                searching && results.isEmpty() && templateHits.isEmpty() && packHits.isEmpty() ->
                     Box(Modifier.fillMaxSize(), Alignment.Center) { Text("No matches", color = AppOnSurfaceMuted) }
 
                 searching -> Column(Modifier.fillMaxSize()) {
@@ -255,6 +275,26 @@ fun FeaturedScreen(nav: NavHostController) {
                                         if (t.ratio > 0f) t.ratio else 3.2f / 5f,
                                         Modifier.width(w),
                                     ) { nav.navigate(Routes.templateEditor(t.id)) }
+                                }
+                                Spacer(Modifier.width(4.dp))
+                            }
+                        }
+                    }
+                    if (packHits.isNotEmpty()) {
+                        Text(
+                            "PACKS", color = Gold, fontSize = 11.sp, letterSpacing = 1.5.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(start = 14.dp, top = 8.dp, bottom = 6.dp),
+                        )
+                        val pScroll = rememberScrollState()
+                        HScrollHint(pScroll) {
+                            Row(
+                                Modifier.horizontalScroll(pScroll).padding(horizontal = 14.dp),
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            ) {
+                                val w = (LocalConfiguration.current.screenWidthDp.dp - 32.dp) / 2.6f
+                                packHits.forEach { (pack, stickers) ->
+                                    com.stickers.bank.ui.packs.PackMiniCard(pack, stickers, w) { nav.navigate(Routes.pack(pack.id)) }
                                 }
                                 Spacer(Modifier.width(4.dp))
                             }
@@ -730,6 +770,31 @@ private fun openBannerLink(context: android.content.Context, link: String) {
     }
 }
 
+/** The admin's "try these" searches as a scrollable row of chips; tapping one searches it.
+ * The one matching the current search is lit. */
+@Composable
+private fun SearchSuggestionRow(terms: List<String>, query: String, onPick: (String) -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 6.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        terms.forEach { term ->
+            val on = term.equals(query.trim(), ignoreCase = true)
+            Row(
+                Modifier.then(
+                    if (on) Modifier.neuInset(cornerRadius = 50.dp, elevation = 4.dp, background = Gold)
+                    else Modifier.neuRaised(cornerRadius = 50.dp, elevation = 5.dp),
+                ).clip(RoundedCornerShape(50)).clickable { onPick(term) }.padding(horizontal = 14.dp, vertical = 9.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(Icons.Rounded.Search, null, tint = if (on) OnGold else Gold, modifier = Modifier.size(15.dp))
+                Text(term, color = if (on) OnGold else AppOnSurface, fontWeight = FontWeight.Bold, fontSize = 12.sp, modifier = Modifier.padding(start = 5.dp))
+            }
+        }
+    }
+}
+
 /** Opens the admin's Packs (Stickers / Animations), sitting left of the layout toggle — same
  * raised pill and height as the toggle, so the two read as one control strip. */
 @Composable
@@ -737,11 +802,11 @@ private fun PacksButton(onClick: () -> Unit) {
     Row(
         Modifier.neuRaised(cornerRadius = 50.dp, elevation = 6.dp).clip(RoundedCornerShape(50)).padding(4.dp)
             .clip(RoundedCornerShape(50)).background(Gold).clickable(onClick = onClick)
-            .height(40.dp).padding(horizontal = 14.dp),
+            .height(46.dp).padding(horizontal = 18.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(Icons.Rounded.Inventory2, null, tint = AppBackground, modifier = Modifier.size(18.dp))
-        Text("PACKS", color = AppBackground, fontWeight = FontWeight.Black, fontSize = 12.sp, letterSpacing = 1.sp, modifier = Modifier.padding(start = 6.dp))
+        Icon(Icons.Rounded.Inventory2, null, tint = AppBackground, modifier = Modifier.size(21.dp))
+        Text("PACKS", color = AppBackground, fontWeight = FontWeight.Black, fontSize = 14.sp, letterSpacing = 1.sp, modifier = Modifier.padding(start = 7.dp))
     }
 }
 

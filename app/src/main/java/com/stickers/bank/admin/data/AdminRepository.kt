@@ -73,7 +73,7 @@ class AdminRepository {
     // ---- Stickers ----
     suspend fun listStickers(collectionId: String): List<AdminSticker> = withContext(Dispatchers.IO) {
         stickers.whereEqualTo("collectionId", collectionId).get().await()
-            .toObjects(AdminSticker::class.java).sortedBy { it.createdAt }
+            .toObjects(AdminSticker::class.java).sortedByDescending { it.createdAt } // newest first
     }
 
     suspend fun deleteSticker(id: String) = withContext(Dispatchers.IO) {

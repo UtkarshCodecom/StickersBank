@@ -1,5 +1,6 @@
 package com.stickers.bank.ui.components
 
+import coil.request.repeatCount
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
@@ -124,6 +125,24 @@ fun BottomActionBar(
     }
 }
 
+/**
+ * What to hand Coil for [sticker]. An animated sticker gets an explicit request: loop forever
+ * and no cross-fade, so it plays the moment it appears in a grid, a pack, a card or the preview
+ * instead of possibly sitting on its first frame. Anything else is just its plain model.
+ */
+@Composable
+fun rememberStickerModel(sticker: Sticker): Any {
+    if (!sticker.isAnimatedSticker) return sticker.coilModel()
+    val context = androidx.compose.ui.platform.LocalContext.current
+    return remember(sticker.image) {
+        coil.request.ImageRequest.Builder(context)
+            .data(sticker.coilModel())
+            .crossfade(false)
+            .repeatCount(coil.drawable.MovieDrawable.REPEAT_INFINITE)
+            .build()
+    }
+}
+
 /** A square sticker cell for grids. */
 @Composable
 fun StickerThumb(
@@ -143,7 +162,7 @@ fun StickerThumb(
         contentAlignment = Alignment.Center,
     ) {
         AsyncImage(
-            model = sticker.coilModel(),
+            model = rememberStickerModel(sticker),
             contentDescription = sticker.caption.ifBlank { sticker.id },
             contentScale = ContentScale.Fit,
             // Clear of the raised surface (painted 5dp — its elevation — inside the cell) and of

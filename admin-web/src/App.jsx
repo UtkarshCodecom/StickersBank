@@ -25,6 +25,7 @@ export default function App() {
   const [showBanners, setShowBanners] = useState(false);
   const [showTrending, setShowTrending] = useState(false);
   const [showPacks, setShowPacks] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const [showTags, setShowTags] = useState(false);
   const [showTemplates, setShowTemplates] = useState(false);
   const [showPageBackgrounds, setShowPageBackgrounds] = useState(false);
@@ -79,6 +80,20 @@ export default function App() {
           </div>
         </header>
         <TrendingManager onClose={() => setShowTrending(false)} />
+      </div>
+    );
+  }
+
+  if (showSuggestions) {
+    return (
+      <div className="app">
+        <header>
+          <div className="header-title">
+            <h1>STICKERS <span>BANK</span></h1>
+            <div className="sub">Admin — Search suggestions</div>
+          </div>
+        </header>
+        <SearchSuggestionsManager onClose={() => setShowSuggestions(false)} />
       </div>
     );
   }
@@ -261,6 +276,7 @@ export default function App() {
           <button className="primary" onClick={() => setShowBanners(true)}>🖼 Banners</button>
           <button className="primary" onClick={() => setShowTrending(true)}>🔥 Trending</button>
           <button className="primary" onClick={() => setShowPacks(true)}>📦 Packs</button>
+          <button className="primary" onClick={() => setShowSuggestions(true)}>🔎 Search suggestions</button>
           <button className="primary" onClick={() => setShowTags(true)}>🏷 Popular Tags</button>
           <button className="primary" onClick={() => setShowPageBackgrounds(true)}>🎨 Page Backgrounds</button>
           <button className="primary" onClick={() => setShowDecorations(true)}>🕶 Decorations</button>
@@ -886,6 +902,106 @@ function TagThemePicker({ value, onChange }) {
   );
 }
 
+/** The app's starter chips — also what "Add starter set" fills an empty list with. */
+const STARTER_SUGGESTIONS = [
+  'good morning', 'good night', 'love', 'funny', 'attitude', 'birthday',
+  'sad', 'angry', 'thank you', 'festival', 'friendship', 'anime',
+];
+
+/**
+ * Search suggestions — the scrollable chips under the app's search bar; tapping one searches it.
+ * Until any are added here the app shows its own starter set.
+ */
+function SearchSuggestionsManager({ onClose }) {
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [term, setTerm] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  const load = useCallback(async () => {
+    setLoading(true); setError('');
+    try { setItems(await api.listSearchSuggestions()); }
+    catch (e) { setError(e.message); }
+    setLoading(false);
+  }, []);
+  useEffect(() => { load(); }, [load]);
+
+  async function add() {
+    const t = term.trim();
+    if (!t || items.some((i) => i.term.toLowerCase() === t.toLowerCase())) return;
+    setBusy(true);
+    try { await api.addSearchSuggestion(t); setTerm(''); await load(); }
+    catch (e) { setError(e.message); }
+    setBusy(false);
+  }
+
+  async function addStarterSet() {
+    setBusy(true);
+    try {
+      const base = Date.now();
+      for (let i = 0; i < STARTER_SUGGESTIONS.length; i++) await api.addSearchSuggestion(STARTER_SUGGESTIONS[i], base + i);
+      await load();
+    } catch (e) { setError(e.message); }
+    setBusy(false);
+  }
+
+  async function remove(item) {
+    setBusy(true);
+    try { await api.deleteSearchSuggestion(item.id); await load(); }
+    catch (e) { setError(e.message); }
+    setBusy(false);
+  }
+
+  async function move(i, dir) {
+    const j = i + dir;
+    if (j < 0 || j >= items.length) return;
+    const arr = [...items];
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+    setItems(arr); // optimistic
+    try { await api.saveOrder('searchSuggestions', arr); }
+    catch (e) { setError(e.message); load(); }
+  }
+
+  return (
+    <section className="card">
+      <div className="card-head">
+        <div>
+          <h2>Search suggestions</h2>
+          <p className="hint">The scrollable chips under the app's search bar — tap one and the app searches it. Order here is the order in the app. While this list is empty the app shows its own starter set ({STARTER_SUGGESTIONS.slice(0, 4).join(', ')}…).</p>
+        </div>
+        <button className="link" onClick={onClose}>← Back to catalog</button>
+      </div>
+      {error && <div className="error">{error}</div>}
+
+      <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
+        <input value={term} onChange={(e) => setTerm(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') add(); }} placeholder="Add a search term (e.g. good morning)" style={{ flex: '1 1 260px' }} />
+        <button className="primary" disabled={busy || !term.trim()} onClick={add}>+ Add</button>
+        {!loading && items.length === 0 && (
+          <button disabled={busy} onClick={addStarterSet}>Add starter set ({STARTER_SUGGESTIONS.length})</button>
+        )}
+      </div>
+
+      {loading ? <p className="muted">Loading…</p> : items.length === 0 ? (
+        <p className="muted">None yet — the app is showing its starter set.</p>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {items.map((it, i) => (
+            <div key={it.id} style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#1c1c20', borderRadius: 10, padding: '8px 12px' }}>
+              <div className="reorder">
+                <button className="mv" title="Earlier" disabled={i === 0} onClick={() => move(i, -1)}>▲</button>
+                <button className="mv" title="Later" disabled={i === items.length - 1} onClick={() => move(i, 1)}>▼</button>
+              </div>
+              <span>🔎 {it.term}</span>
+              <button className="del" style={{ marginLeft: 'auto' }} disabled={busy} onClick={() => remove(it)}>✕</button>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
 /**
  * Packs — ready-made packs shown in the app under Featured → Packs, in two tabs (Stickers /
  * Animations). A pack is one kind only, like a WhatsApp pack: the picker shows just that kind.
@@ -899,7 +1015,7 @@ function PacksManager({ onClose }) {
   const [editingId, setEditingId] = useState(null);
   const [name, setName] = useState('');
   const [animated, setAnimated] = useState(false);
-  // Insertion-ordered, so the pack keeps the order stickers were picked in.
+  // Newest pick first — the pack's order (the number on each pick).
   const [selected, setSelected] = useState([]);
   const [saving, setSaving] = useState(false);
   const [formMsg, setFormMsg] = useState('');
@@ -924,7 +1040,8 @@ function PacksManager({ onClose }) {
     .filter((s) => !q || (s.tags || []).some((t) => t.includes(q)));
 
   function toggleSticker(id) {
-    setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+    // A newly picked sticker goes FIRST in the pack.
+    setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [id, ...prev]));
   }
 
   function switchKind(nextAnimated) {

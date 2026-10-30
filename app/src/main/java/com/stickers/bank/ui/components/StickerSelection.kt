@@ -213,7 +213,7 @@ fun SelectableStickerGrid(
                     contentAlignment = Alignment.Center,
                 ) {
                     AsyncImage(
-                        model = s.coilModel(),
+                        model = rememberStickerModel(s),
                         contentDescription = null,
                         contentScale = ContentScale.Fit,
                         // Clear of the raised surface (painted 5dp inside the cell) and of the

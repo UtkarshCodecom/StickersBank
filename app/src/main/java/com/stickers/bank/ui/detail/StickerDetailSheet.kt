@@ -214,7 +214,7 @@ fun StickerDetailSheet(
                                     )
                                 } else {
                                     AsyncImage(
-                                        model = s.coilModel(),
+                                        model = com.stickers.bank.ui.components.rememberStickerModel(s),
                                         contentDescription = s.caption,
                                         modifier = clear,
                                     )

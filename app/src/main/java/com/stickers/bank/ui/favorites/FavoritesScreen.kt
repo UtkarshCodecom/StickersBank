@@ -1,5 +1,7 @@
 package com.stickers.bank.ui.favorites
 
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -40,16 +42,42 @@ fun FavoritesScreen(nav: NavHostController) {
         val all = (custom + catalog.allStickers()).distinctBy { it.id }.associateBy { it.id }
         favoriteIds.mapNotNull { all[it] }
     }
+    // Favourite packs (hearted in Featured → Packs), as a row above the stickers.
+    val favoritePackIds by ServiceLocator.favoritesRepository.packIds.collectAsStateSafe()
+    val allPacks = com.stickers.bank.ui.packs.rememberResolvedPacks()
+    val favoritePacks = remember(allPacks, favoritePackIds) { allPacks.filter { it.first.id in favoritePackIds } }
 
     Column(Modifier.fillMaxSize()) {
         SbBackHeader("Favorites", { nav.popBackStack() })
+        if (favoritePacks.isNotEmpty()) {
+            Text(
+                "PACKS", color = com.stickers.bank.ui.theme.Gold, fontSize = 11.sp, letterSpacing = 1.5.sp,
+                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                modifier = Modifier.padding(start = 18.dp, top = 4.dp, bottom = 6.dp),
+            )
+            androidx.compose.foundation.layout.Row(
+                Modifier.fillMaxWidth().horizontalScroll(androidx.compose.foundation.rememberScrollState()).padding(horizontal = 14.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                favoritePacks.forEach { (pack, stickers) ->
+                    com.stickers.bank.ui.packs.PackMiniCard(pack, stickers, 140.dp) { nav.navigate(Routes.pack(pack.id)) }
+                }
+            }
+            Text(
+                "STICKERS", color = com.stickers.bank.ui.theme.Gold, fontSize = 11.sp, letterSpacing = 1.5.sp,
+                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                modifier = Modifier.padding(start = 18.dp, top = 12.dp),
+            )
+        }
         Text(
             "${results.size} sticker${if (results.size == 1) "" else "s"}",
             color = AppOnSurfaceMuted, fontSize = 12.sp,
             modifier = Modifier.padding(start = 18.dp, end = 16.dp, top = 2.dp, bottom = 6.dp),
         )
-        if (results.isEmpty()) {
-            EmptyState("No favorites yet", "Tap the heart on any sticker's popup to save it here.")
+        if (results.isEmpty() && favoritePacks.isEmpty()) {
+            EmptyState("No favorites yet", "Tap the heart on any sticker's popup, or on a pack, to save it here.")
+        } else if (results.isEmpty()) {
+            EmptyState("No favourite stickers yet", "Tap the heart on any sticker's popup to save it here.")
         } else {
             LazyVerticalGrid(
                 columns = GridCells.Fixed(4),

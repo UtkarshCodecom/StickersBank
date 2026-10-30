@@ -37,6 +37,12 @@ import kotlinx.serialization.json.Json
  * and exposes it as the UI [Catalog] tree. Sticker images are R2 public URLs.
  */
 /** Matches the web admin's `PAGE_BACKGROUND_KEYS` in db.js exactly — keep both in sync. */
+/** Search chips shown until the admin sets their own (web admin → Search suggestions). */
+val DEFAULT_SEARCH_SUGGESTIONS = listOf(
+    "good morning", "good night", "love", "funny", "attitude", "birthday",
+    "sad", "angry", "thank you", "festival", "friendship", "anime",
+)
+
 val PAGE_BACKGROUND_KEYS = listOf("featured", "templates", "newArrival", "bank", "favorites", "trendingAll", "trending")
 
 class CatalogRepository(context: Context) {
@@ -82,6 +88,11 @@ class CatalogRepository(context: Context) {
     /** Standalone Trending cards the admin built (own title/image/sticker picks), in order. */
     private val _trending = MutableStateFlow<List<TrendingCard>>(emptyList())
     val trending: StateFlow<List<TrendingCard>> = _trending.asStateFlow()
+
+    /** Tap-to-search chips under the search bar ("searchSuggestions" collection, admin order).
+     * Until the admin adds any, a built-in starter set shows instead (see DEFAULT_SEARCH_SUGGESTIONS). */
+    private val _searchSuggestions = MutableStateFlow(DEFAULT_SEARCH_SUGGESTIONS)
+    val searchSuggestions: StateFlow<List<String>> = _searchSuggestions.asStateFlow()
 
     /** Admin-curated packs ("packs" collection), in admin order — Featured → Packs. */
     private val _packs = MutableStateFlow<List<com.stickers.bank.data.model.Pack>>(emptyList())
@@ -234,6 +245,14 @@ class CatalogRepository(context: Context) {
                         )
                     }
             }.onSuccess { _trending.value = it }
+        }
+        // Search suggestion chips (admin-curated; the starter set stays if there are none).
+        scope.launch {
+            runCatching {
+                db.collection("searchSuggestions").get().await().documents
+                    .sortedBy { it.getLong("order") ?: 0L }
+                    .mapNotNull { it.getString("term")?.trim()?.takeIf { t -> t.isNotBlank() } }
+            }.onSuccess { if (it.isNotEmpty()) _searchSuggestions.value = it }
         }
         // Packs (admin-curated, still or animated).
         scope.launch {
@@ -452,10 +471,12 @@ class CatalogRepository(context: Context) {
 
     /** Admin-arranged stickers (`position` >= 0) first, in that order; the rest follow by upload
      * time. Mirrors byStickerOrder in the web admin's db.js. */
+    // Newly added stickers come FIRST: ones not yet arranged in the admin (new uploads) lead,
+    // newest first; then the admin's own arrangement (position) for the rest.
     private val stickerOrder = compareBy<AdminSticker>(
-        { if (it.position >= 0) 0 else 1 },
+        { if (it.position >= 0) 1 else 0 },
         { if (it.position >= 0) it.position else 0L },
-        { it.createdAt },
+        { -it.createdAt },
     )
 
     private fun AdminSticker.toSticker() = Sticker(

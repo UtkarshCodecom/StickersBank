@@ -108,7 +108,9 @@ fun SbHomeTopBar(
                             indication = null,
                             onClick = {},
                             // Long-press the logo → the PIN-gated admin panel.
-                            onLongClick = { context.startActivity(Intent(context, AdminActivity::class.java)) },
+                            // Long-press the logo → the PIN-gated admin panel, in debug builds only;
+                            // in the Play (release) build a long-press does nothing.
+                            onLongClick = if (com.stickers.bank.BuildConfig.DEBUG) ({ context.startActivity(Intent(context, AdminActivity::class.java)) }) else null,
                         ),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
@@ -131,7 +133,7 @@ fun SbHomeTopBar(
                     modifier = Modifier.weight(1f),
                     placeholder = "Search",
                     showLeadingIcon = true,
-                    onFocusChanged = { searchFocused = it },
+                    onFocusChanged = { searchFocused = it; FeaturedSearch.focused = it },
                 )
                 if (showFilter) {
                     Spacer(Modifier.width(6.dp))
@@ -150,7 +152,7 @@ fun SbHomeTopBar(
                             interactionSource = remember { MutableInteractionSource() },
                             indication = null,
                             onClick = {},
-                            onLongClick = { context.startActivity(Intent(context, AdminActivity::class.java)) },
+                            onLongClick = if (com.stickers.bank.BuildConfig.DEBUG) ({ context.startActivity(Intent(context, AdminActivity::class.java)) }) else null,
                         ),
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically,

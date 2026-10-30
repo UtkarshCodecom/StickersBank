@@ -187,7 +187,7 @@ private fun BankRow(bank: Bank, onOpen: () -> Unit, onDelete: () -> Unit) {
                         contentAlignment = Alignment.Center,
                     ) {
                         AsyncImage(
-                            model = s.coilModel(),
+                            model = com.stickers.bank.ui.components.rememberStickerModel(s),
                             contentDescription = null,
                             modifier = Modifier.fillMaxSize().padding(8.dp), // clear of the inset well's inner shadow
                         )

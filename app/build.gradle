@@ -19,8 +19,8 @@ android {
         applicationId "com.stickers.bank"
         minSdk 24
         targetSdk 37
-        versionCode 31
-        versionName "7.8"
+        versionCode 32
+        versionName "7.9"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary true }
@@ -35,8 +35,29 @@ android {
         buildConfigField "String", "R2_SECRET_ACCESS_KEY", "\"${localProps.getProperty('r2.secretAccessKey', '')}\""
     }
 
+    // Optional release signing, from local.properties (never committed):
+    //   release.storeFile=StickersBank.jks   release.storePassword=…
+    //   release.keyAlias=…                    release.keyPassword=…
+    // With those set, `./gradlew bundleRelease` gives a Play-ready signed .aab; without them the
+    // bundle comes out unsigned (use Build ▸ Generate Signed App Bundle instead).
+    signingConfigs {
+        if (localProps.getProperty('release.storeFile')) {
+            release {
+                storeFile rootProject.file(localProps.getProperty('release.storeFile'))
+                storePassword localProps.getProperty('release.storePassword')
+                keyAlias localProps.getProperty('release.keyAlias')
+                keyPassword localProps.getProperty('release.keyPassword')
+            }
+        }
+    }
+
     buildTypes {
         release {
+            if (localProps.getProperty('release.storeFile')) signingConfig signingConfigs.release
+            // The admin panel can't be opened in release builds (see TopBar), so they don't carry
+            // the R2 upload keys either.
+            buildConfigField "String", "R2_ACCESS_KEY_ID", "\"\""
+            buildConfigField "String", "R2_SECRET_ACCESS_KEY", "\"\""
             // The real AdMob App ID — paired with the real interstitial unit in ads/Ads.kt.
             manifestPlaceholders = [admobAppId: "ca-app-pub-1281325310603643~2660946725"]
             minifyEnabled false
