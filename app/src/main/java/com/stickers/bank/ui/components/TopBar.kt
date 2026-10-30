@@ -81,6 +81,11 @@ import com.stickers.bank.ui.theme.neuRaised
  * blinking cursor doesn't linger once the keyboard's gone) instead of leaving the screen.
  */
 @OptIn(ExperimentalFoundationApi::class)
+
+/** Whether long-pressing the logo opens the admin panel. Off in every build; set to true (or to
+ * BuildConfig.DEBUG for debug builds only) to bring it back. */
+private const val ADMIN_LONG_PRESS = false
+
 @Composable
 fun SbHomeTopBar(
     showFilter: Boolean = false,
@@ -108,9 +113,9 @@ fun SbHomeTopBar(
                             indication = null,
                             onClick = {},
                             // Long-press the logo → the PIN-gated admin panel.
-                            // Long-press the logo → the PIN-gated admin panel, in debug builds only;
-                            // in the Play (release) build a long-press does nothing.
-                            onLongClick = if (com.stickers.bank.BuildConfig.DEBUG) ({ context.startActivity(Intent(context, AdminActivity::class.java)) }) else null,
+                            // Long-press the logo → the PIN-gated admin panel: switched off (see
+                            // ADMIN_LONG_PRESS); a long-press does nothing in any build.
+                            onLongClick = if (ADMIN_LONG_PRESS) ({ context.startActivity(Intent(context, AdminActivity::class.java)) }) else null,
                         ),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
@@ -152,7 +157,7 @@ fun SbHomeTopBar(
                             interactionSource = remember { MutableInteractionSource() },
                             indication = null,
                             onClick = {},
-                            onLongClick = if (com.stickers.bank.BuildConfig.DEBUG) ({ context.startActivity(Intent(context, AdminActivity::class.java)) }) else null,
+                            onLongClick = if (ADMIN_LONG_PRESS) ({ context.startActivity(Intent(context, AdminActivity::class.java)) }) else null,
                         ),
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically,
