@@ -1215,22 +1215,63 @@ fun TrendingResultsScreen(nav: NavHostController, trendingId: String) {
     }
     com.stickers.bank.ui.ProvidePageBackdrop(cardBg)
 
+    // The whole card's stickers to WhatsApp or a bank from the bottom bar, or long-press to pick
+    // some — the same as a category or a pack.
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val name = card?.title ?: "Trending"
+    val selection = rememberStickerSelection()
+    var showBankDialog by remember { mutableStateOf(false) }
+    var bankTarget by remember { mutableStateOf<List<Sticker>>(emptyList()) }
+    val exportPack = rememberPackExporter()
+    val gifShare = rememberGifShare()
+    val telegramSend = rememberTelegramPackShare()
+    fun toWhatsApp(chosen: List<Sticker>) {
+        if (chosen.isNotEmpty() && chosen.all { it.isVideoClip }) gifShare(chosen) else exportPack(name, chosen)
+    }
+
     Column(Modifier.fillMaxSize()) {
-        SbBackHeader(card?.title ?: "Trending", { nav.popBackStack() })
+        SbBackHeader(name, { if (selection.active) selection.clear() else nav.popBackStack() })
         Text("${results.size} stickers", color = AppOnSurfaceMuted, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 18.dp, vertical = 2.dp))
-        if (results.isEmpty()) {
-            EmptyState("No stickers", "Nothing here yet.")
-        } else {
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(3),
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(10.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                gridItems(results, key = { it.id }) { s -> StickerThumb(sticker = s, onClick = { detail = s }) }
+        Box(Modifier.weight(1f).fillMaxWidth()) {
+            if (results.isEmpty()) {
+                EmptyState("No stickers", "Nothing here yet.")
+            } else {
+                SelectableStickerGrid(
+                    stickers = results,
+                    selection = selection,
+                    onStickerClick = { detail = it },
+                    modifier = Modifier.fillMaxSize(),
+                    columns = 3,
+                )
             }
         }
+        if (selection.active) {
+            val chosen = results.filter { it.id in selection.selected }
+            SelectionActionBar(
+                count = selection.selected.size,
+                onAddToBank = { bankTarget = chosen; showBankDialog = true },
+                onWhatsApp = { toWhatsApp(chosen) },
+                onTelegram = { telegramSend(name, chosen) },
+                whatsAppLabel = if (chosen.isNotEmpty() && chosen.all { it.isVideoClip }) "GIF" else "WhatsApp",
+                onClose = { selection.clear() },
+            )
+        } else if (results.isNotEmpty()) {
+            com.stickers.bank.ui.components.BottomActionBar(
+                onBank = { bankTarget = results; showBankDialog = true },
+                onWhatsApp = { toWhatsApp(results) },
+            )
+        }
+    }
+    if (showBankDialog) {
+        AddToBankDialog(
+            count = bankTarget.size,
+            onDismiss = { showBankDialog = false },
+            onAdd = { bank ->
+                bankTarget.forEach { ServiceLocator.bankRepository.addSticker(bank.id, it) }
+                android.widget.Toast.makeText(context, "Added ${bankTarget.size} to ${bank.name}", android.widget.Toast.LENGTH_SHORT).show()
+                selection.clear(); showBankDialog = false
+            },
+        )
     }
     detail?.let { s ->
         StickerDetailSheet(
