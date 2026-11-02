@@ -46,6 +46,11 @@ object Routes {
     fun pack(id: String) = "pack/$id"
     const val PACK = "pack/{id}"
 
+    // Studio (opened from Settings): on-device Face Animator and Auto Subtitles.
+    const val STUDIO = "studio"
+    const val STUDIO_FACE = "studio/face"
+    const val STUDIO_SUBTITLES = "studio/subtitles"
+
     // Every Trending card at once (opened from the "See all" button on Featured).
     const val TRENDING_ALL = "trending_all"
 

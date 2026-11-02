@@ -30,6 +30,7 @@ local.properties
 backup-*/
 ZextraFiles/
 admin-web.zip
+admin-web*.zip
 # 161MB reference sticker library — excluded from the APK too (see app/build.gradle)
 app/src/main/assets/sticker_img/
 

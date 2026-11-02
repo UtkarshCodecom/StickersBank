@@ -26,6 +26,7 @@ import androidx.compose.material.icons.automirrored.rounded.HelpOutline
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.ExpandMore
+import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.rounded.MailOutline
@@ -101,6 +102,13 @@ fun SettingsScreen(nav: NavHostController) {
                 title = "Favorites",
                 subtitle = "${favoriteIds.size} sticker${if (favoriteIds.size == 1) "" else "s"} you've favorited",
             ) { nav.navigate(Routes.FAVORITES) }
+
+            SectionLabel("STUDIO")
+            LibraryRow(
+                icon = Icons.Rounded.AutoAwesome,
+                title = "Studio",
+                subtitle = "Face animator & auto subtitles · free, on your phone",
+            ) { nav.navigate(Routes.STUDIO) }
 
             SectionLabel("FAQ")
             FAQ.forEach { (q, a) -> FaqItem(q, a) }
