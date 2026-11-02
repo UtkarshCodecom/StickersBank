@@ -124,8 +124,9 @@ dependencies {
     // "Remove background" in the crop step: Google's on-device person segmentation. The model
     // ships inside the app — it runs offline, needs no account, key or internet, costs nothing.
     implementation 'com.google.mlkit:segmentation-selfie:16.0.0-beta6'
-    // Studio › Face Swap: finds the face (eyes, mouth, outline) in the photo and in every video frame. Bundled, on-device.
-    implementation 'com.google.mlkit:face-detection:16.1.7'
+    // Studio › Face Swap: a 468-point 3D face mesh of the photo and of every video frame, so the
+    // photo's face is warped onto the video's triangle by triangle. Bundled, on-device, free.
+    implementation 'com.google.mlkit:face-mesh-detection:16.0.0-beta3'
 
     // Studio → Auto subtitles: video preview (ExoPlayer) and export with captions burned in and
     // audio kept/replaced/mixed (Transformer) — all on the phone, no server.

@@ -2,37 +2,31 @@ package com.stickers.bank.ui.studio
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.BitmapShader
 import android.graphics.BlurMaskFilter
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.ColorMatrix
 import android.graphics.ColorMatrixColorFilter
-import android.graphics.Matrix
 import android.graphics.Paint
 import android.graphics.Path
-import android.graphics.PointF
 import android.graphics.PorterDuff
 import android.graphics.PorterDuffXfermode
-import android.graphics.RadialGradient
 import android.graphics.Rect
 import android.graphics.RectF
 import android.graphics.Shader
 import android.media.MediaMetadataRetriever
 import android.net.Uri
 import com.google.mlkit.vision.common.InputImage
-import com.google.mlkit.vision.face.Face
-import com.google.mlkit.vision.face.FaceContour
-import com.google.mlkit.vision.face.FaceDetection
-import com.google.mlkit.vision.face.FaceDetectorOptions
-import com.google.mlkit.vision.face.FaceLandmark
+import com.google.mlkit.vision.facemesh.FaceMesh
+import com.google.mlkit.vision.facemesh.FaceMeshDetection
+import com.google.mlkit.vision.facemesh.FaceMeshDetectorOptions
 import com.stickers.bank.util.VideoToWebp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 import kotlin.coroutines.coroutineContext
-import kotlin.math.atan2
-import kotlin.math.hypot
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
@@ -40,32 +34,41 @@ import kotlin.math.roundToInt
 /** Only this much of a video is face-swapped (and exported) — longer clips are cut here. */
 const val SWAP_MAX_MS = 60_000L
 
-/**
- * The face taken from the photo: the photo cropped around the face with everything outside the
- * face outline faded to transparent ([patch]), where its eyes and mouth are in that crop
- * ([anchors]: left eye x,y · right eye x,y · mouth centre x,y), and its average skin colour.
- */
-class SourceFace(val patch: Bitmap, val anchors: FloatArray, val skin: FloatArray)
+/** Points in ML Kit's face mesh (the same 468 for every face, always in the same places). */
+private const val MESH_POINTS = 468
+/** The tip of the nose in the mesh — used to tell which way "towards the camera" is. */
+private const val NOSE_TIP = 1
 
 /**
- * Where the face is in one video frame. [points] are fractions of the frame (0–1): left eye,
- * right eye, mouth-left corner, mouth-right corner, lower lip — x,y each. [skin] is the average
- * colour of that face (0–255 r,g,b), [alpha] how present it is (it fades in/out at the edges of
- * the frames where it was found).
+ * The face taken from the photo: the photo cropped around the face, faded to transparent
+ * outside the face outline ([patch]); where each mesh point is in that crop ([tex], x,y pairs);
+ * the mesh triangles to draw (with the mouth opening left out, and optionally the eyes); and
+ * the blurred colour under each point ([skin], r,g,b), which is the photo's lighting.
+ */
+class SourceFace(
+    val patch: Bitmap,
+    val tex: FloatArray,
+    val triangles: ShortArray,
+    val trianglesNoEyes: ShortArray,
+    val skin: FloatArray,
+)
+
+/**
+ * The face mesh in one video frame: [points] x,y as fractions of the frame and z (depth, in
+ * frame widths) for each mesh point; [skin] the blurred colour under each point (the video's
+ * light and skin tone); [alpha] how present it is (it fades where the face comes and goes).
  */
 class FacePose(val points: FloatArray, val skin: FloatArray, val alpha: Float)
 
 /** How the photo's face is laid onto the video's. */
 data class SwapOptions(
-    /** 1 = the photo's eyes and mouth land exactly on the video's. */
-    val size: Float = 1f,
-    /** 0 = the photo's own colours, 1 = fully recoloured to the video's skin and light. */
-    val skinMatch: Float = 0.7f,
-    /** Let the video person's real mouth show through, so the face still talks. */
-    val talkingMouth: Boolean = false,
+    /** 0 = the photo's own colours and light, 1 = fully relit to the video's skin tone and light. */
+    val skinMatch: Float = 0.85f,
+    /** Let the video person's own eyes show through, so they blink and look around. */
+    val realEyes: Boolean = false,
 )
 
-/** The face found in the video, sampled every so often; [poseAt] fills in between samples. */
+/** The face mesh through the video, sampled every so often; [poseAt] fills in between samples. */
 class FaceTrack(private val times: LongArray, private val points: Array<FloatArray?>, private val skins: Array<FloatArray?>) {
 
     /** How much of the video the face was found in, 0–1. */
@@ -92,158 +95,123 @@ class FaceTrack(private val times: LongArray, private val points: Array<FloatArr
 }
 
 /**
- * FACE SWAP, done the classic (no-AI-server) way, entirely on the phone and free:
- *  1. ML Kit finds the face in the photo — its outline, eyes and mouth — and the outline becomes a
- *     soft-edged cut-out.
- *  2. ML Kit finds the face in the video every [stepFor] ms and the positions are smoothed.
- *  3. Every frame, the cut-out is stretched/turned so its eyes and mouth sit on the video face's
- *     (a 3-point affine warp), recoloured to the video's skin tone and light, and blended in.
- * It follows the head (move, turn, tilt, near/far); it can't invent expressions the photo
- * doesn't have — except the mouth, which can be let through from the video ([SwapOptions.talkingMouth]).
+ * FACE SWAP by morphing, entirely on the phone and free (no AI server, no per-use cost):
+ *  1. ML Kit's face mesh puts the same 468 points on the photo's face and, every [stepFor] ms,
+ *     on the video's face — eyes, brows, nose, lips, jaw, in 3D.
+ *  2. Every frame the photo's face is cut into the mesh's ~900 triangles and each one is warped
+ *     onto the same triangle of the video face, so the photo face takes on the video face's
+ *     shape, head turn and expression — the mouth opens, smiles, the eyes close when it blinks.
+ *     The mouth opening is left empty, so the video's real teeth and tongue show when it talks.
+ *  3. The photo is relit point by point to the video's light and skin tone (the blurred colour
+ *     under each point in the video ÷ the same in the photo), so it sits in the scene instead of
+ *     looking pasted on, and the edge is feathered into the video's own skin.
+ * What it can't do (what paid server AI does) is invent what the photo doesn't show — teeth the
+ * photo's mouth doesn't have, the far side of a face turned away in the photo.
  */
 object FaceSwap {
 
-    /** Frames are scanned this big (longest side) — plenty for finding a face, and quick. */
-    private const val SCAN_SIDE = 640
-    /** The cut-out is kept at most this big. */
-    private const val PATCH_MAX = 640
+    /** Frames are scanned this big (longest side) — plenty for the mesh, and quick. */
+    private const val SCAN_SIDE = 720
+    /** The cut-out is kept at most this big — about the size faces appear in phone videos. */
+    private const val PATCH_MAX = 512
+    /** The photo is sampled for its lighting at most this big. */
+    private const val LIGHT_SIDE = 256
+    /** Lighting is the colour averaged over this fraction of the face's width around a point. */
+    private const val LIGHT_RADIUS = 0.08f
+
+    private fun detector() = FaceMeshDetection.getClient(
+        FaceMeshDetectorOptions.Builder().setUseCase(FaceMeshDetectorOptions.FACE_MESH).build(),
+    )
 
     /** The face in [photo], or null if there's no clear face. */
     suspend fun sourceFrom(photo: Bitmap): SourceFace? = withContext(Dispatchers.Default) {
         val src = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O && photo.config == Bitmap.Config.HARDWARE) {
             photo.copy(Bitmap.Config.ARGB_8888, false) ?: return@withContext null
         } else photo
-        val detector = FaceDetection.getClient(
-            FaceDetectorOptions.Builder()
-                .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_ACCURATE)
-                .setLandmarkMode(FaceDetectorOptions.LANDMARK_MODE_ALL)
-                .setContourMode(FaceDetectorOptions.CONTOUR_MODE_ALL)
-                .build(),
-        )
+        val detector = detector()
         try {
-            val faces = runCatching { detector.process(InputImage.fromBitmap(src, 0)).await() }.getOrNull() ?: return@withContext null
-            val face = faces.maxByOrNull { it.boundingBox.width() * it.boundingBox.height() } ?: return@withContext null
-            val p = pointsOf(face) ?: return@withContext null
-            cutOut(src, face, p)
+            val meshes = runCatching { detector.process(InputImage.fromBitmap(src, 0)).await() }.getOrNull() ?: return@withContext null
+            val mesh = meshes.maxByOrNull { it.boundingBox.width() * it.boundingBox.height() } ?: return@withContext null
+            cutOut(src, mesh)
         } finally {
             detector.close()
         }
     }
 
-    /** The face outline of [face] (or an oval from its eyes and mouth), feathered and cropped. */
-    private fun cutOut(src: Bitmap, face: Face, p: FloatArray): SourceFace? {
-        val eyeDist = hypot(p[2] - p[0], p[3] - p[1])
-        if (eyeDist < 8f) return null
-        val mouth = PointF((p[4] + p[6]) / 2f, (p[5] + p[7]) / 2f)
-        val outline = face.getContour(FaceContour.FACE)?.points?.takeIf { it.size >= 10 }
-            ?: ovalAround(p, eyeDist)
-        // Pulled in a little towards its middle, so hair and background at the edge stay out.
-        val cx = outline.sumOf { it.x.toDouble() }.toFloat() / outline.size
-        val cy = outline.sumOf { it.y.toDouble() }.toFloat() / outline.size
-        val shrunk = outline.map { PointF(cx + (it.x - cx) * 0.93f, cy + (it.y - cy) * 0.93f) }
-        val feather = eyeDist * 0.22f
-        val left = (shrunk.minOf { it.x } - feather).toInt().coerceAtLeast(0)
-        val top = (shrunk.minOf { it.y } - feather).toInt().coerceAtLeast(0)
-        val right = (shrunk.maxOf { it.x } + feather).roundToInt().coerceAtMost(src.width)
-        val bottom = (shrunk.maxOf { it.y } + feather).roundToInt().coerceAtMost(src.height)
+    private fun cutOut(src: Bitmap, mesh: FaceMesh): SourceFace? {
+        val xy = FloatArray(MESH_POINTS * 2)
+        mesh.allPoints.forEach { p ->
+            if (p.index in 0 until MESH_POINTS) { xy[p.index * 2] = p.position.x; xy[p.index * 2 + 1] = p.position.y }
+        }
+        val oval = mesh.getPoints(FaceMesh.FACE_OVAL).map { it.position.x to it.position.y }
+        if (oval.size < 10) return null
+        val faceW = oval.maxOf { it.first } - oval.minOf { it.first }
+        if (faceW < 24f) return null
+
+        // The crop: the face outline plus a little room for the soft edge.
+        val pad = faceW * 0.06f
+        val left = (oval.minOf { it.first } - pad).toInt().coerceAtLeast(0)
+        val top = (oval.minOf { it.second } - pad).toInt().coerceAtLeast(0)
+        val right = (oval.maxOf { it.first } + pad).roundToInt().coerceAtMost(src.width)
+        val bottom = (oval.maxOf { it.second } + pad).roundToInt().coerceAtMost(src.height)
         if (right - left < 16 || bottom - top < 16) return null
         val crop = Rect(left, top, right, bottom)
         val scale = min(1f, PATCH_MAX.toFloat() / max(crop.width(), crop.height()))
         val pw = (crop.width() * scale).roundToInt().coerceAtLeast(1)
         val ph = (crop.height() * scale).roundToInt().coerceAtLeast(1)
-        fun x(v: Float) = (v - left) * scale
-        fun y(v: Float) = (v - top) * scale
 
+        // Soft mask: the outline pulled in a touch (so hair and background stay out) and
+        // blurred, so the face fades into the video's skin instead of ending in a hard line.
+        val cx = oval.sumOf { it.first.toDouble() }.toFloat() / oval.size
+        val cy = oval.sumOf { it.second.toDouble() }.toFloat() / oval.size
+        val path = Path()
+        oval.forEachIndexed { i, (x, y) ->
+            val px = (cx + (x - cx) * 0.93f - left) * scale
+            val py = (cy + (y - cy) * 0.93f - top) * scale
+            if (i == 0) path.moveTo(px, py) else path.lineTo(px, py)
+        }
+        path.close()
         val patch = Bitmap.createBitmap(pw, ph, Bitmap.Config.ARGB_8888)
         val c = Canvas(patch)
-        val path = Path().apply {
-            moveTo(x(shrunk[0].x), y(shrunk[0].y))
-            for (i in 1 until shrunk.size) lineTo(x(shrunk[i].x), y(shrunk[i].y))
-            close()
-        }
-        // The soft mask first, then the photo kept only where the mask is.
         c.drawPath(path, Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = Color.BLACK
-            maskFilter = BlurMaskFilter((feather * scale * 0.5f).coerceAtLeast(1f), BlurMaskFilter.Blur.NORMAL)
+            maskFilter = BlurMaskFilter((faceW * 0.035f * scale).coerceAtLeast(1f), BlurMaskFilter.Blur.NORMAL)
         })
         c.drawBitmap(src, crop, RectF(0f, 0f, pw.toFloat(), ph.toFloat()), Paint(Paint.FILTER_BITMAP_FLAG).apply {
             xfermode = PorterDuffXfermode(PorterDuff.Mode.SRC_IN)
         })
-        val anchors = floatArrayOf(x(p[0]), y(p[1]), x(p[2]), y(p[3]), x(mouth.x), y(mouth.y))
-        return SourceFace(patch, anchors, skinOf(src, p))
+        val tex = FloatArray(MESH_POINTS * 2) { i -> (xy[i] - if (i % 2 == 0) left else top) * scale }
+
+        // The photo's lighting, read from an unmasked small copy of the same crop.
+        val ls = min(1f, LIGHT_SIDE.toFloat() / max(crop.width(), crop.height()))
+        val small = Bitmap.createBitmap(
+            (crop.width() * ls).roundToInt().coerceAtLeast(1), (crop.height() * ls).roundToInt().coerceAtLeast(1), Bitmap.Config.ARGB_8888,
+        )
+        Canvas(small).drawBitmap(src, crop, RectF(0f, 0f, small.width.toFloat(), small.height.toFloat()), Paint(Paint.FILTER_BITMAP_FLAG))
+        val lightXy = FloatArray(MESH_POINTS * 2) { i -> (xy[i] - if (i % 2 == 0) left else top) * ls }
+        val skin = BlurSampler(small, Rect(0, 0, small.width, small.height)).meansAt(lightXy, faceW * ls * LIGHT_RADIUS)
+        small.recycle()
+
+        // Triangles, minus the mouth opening (so the video's own mouth shows when it talks).
+        val innerLips = (mesh.getPoints(FaceMesh.UPPER_LIP_BOTTOM) + mesh.getPoints(FaceMesh.LOWER_LIP_TOP)).map { it.index }.toSet()
+        val eyes = (mesh.getPoints(FaceMesh.LEFT_EYE) + mesh.getPoints(FaceMesh.RIGHT_EYE)).map { it.index }.toSet()
+        val all = mesh.allTriangles.map { t -> t.allPoints.map { it.index } }
+            .filter { t -> t.size == 3 && t.all { it in 0 until MESH_POINTS } && !t.all { it in innerLips } }
+        if (all.size < 100) return null
+        fun pack(list: List<List<Int>>) = ShortArray(list.size * 3) { list[it / 3][it % 3].toShort() }
+        return SourceFace(patch, tex, pack(all), pack(all.filterNot { t -> t.all { it in eyes } }), skin)
     }
 
-    /** An oval face outline guessed from the eyes and mouth, for when there's no contour. */
-    private fun ovalAround(p: FloatArray, eyeDist: Float): List<PointF> {
-        val cx = (p[0] + p[2] + p[4] + p[6]) / 4f
-        val cy = (p[1] + p[3] + p[5] + p[7]) / 4f
-        val angle = atan2(p[3] - p[1], p[2] - p[0])
-        val rx = eyeDist * 1.05f
-        val ry = eyeDist * 1.45f
-        return (0 until 32).map { i ->
-            val a = i / 32.0 * 2 * Math.PI
-            val ox = (rx * kotlin.math.cos(a)).toFloat()
-            val oy = (ry * kotlin.math.sin(a)).toFloat()
-            PointF(cx + ox * kotlin.math.cos(angle) - oy * kotlin.math.sin(angle), cy + ox * kotlin.math.sin(angle) + oy * kotlin.math.cos(angle))
-        }
-    }
-
-    /**
-     * The 10 face points (pixels): left eye, right eye, mouth-left, mouth-right, lower lip. Missing
-     * mouth points are guessed from the eyes — the eyes themselves are required.
-     */
-    private fun pointsOf(face: Face): FloatArray? {
-        val le = face.getLandmark(FaceLandmark.LEFT_EYE)?.position ?: return null
-        val re = face.getLandmark(FaceLandmark.RIGHT_EYE)?.position ?: return null
-        val eyeDist = hypot(re.x - le.x, re.y - le.y)
-        if (eyeDist < 2f) return null
-        // "Down the face": perpendicular to the eye line, on the side the face's box centre is.
-        var dx = -(re.y - le.y) / eyeDist
-        var dy = (re.x - le.x) / eyeDist
-        val mid = PointF((le.x + re.x) / 2f, (le.y + re.y) / 2f)
-        val box = face.boundingBox
-        if ((box.exactCenterX() - mid.x) * dx + (box.exactCenterY() - mid.y) * dy < 0) { dx = -dx; dy = -dy }
-        val guessMouth = PointF(mid.x + dx * eyeDist * 1.05f, mid.y + dy * eyeDist * 1.05f)
-        val half = PointF((re.x - le.x) * 0.38f, (re.y - le.y) * 0.38f)
-        val ml = face.getLandmark(FaceLandmark.MOUTH_LEFT)?.position ?: PointF(guessMouth.x - half.x, guessMouth.y - half.y)
-        val mr = face.getLandmark(FaceLandmark.MOUTH_RIGHT)?.position ?: PointF(guessMouth.x + half.x, guessMouth.y + half.y)
-        val mc = PointF((ml.x + mr.x) / 2f, (ml.y + mr.y) / 2f)
-        val mb = face.getLandmark(FaceLandmark.MOUTH_BOTTOM)?.position
-            ?: PointF(mc.x + dx * eyeDist * 0.22f, mc.y + dy * eyeDist * 0.22f)
-        // A mouth that isn't clearly below the eyes means a bad detection.
-        if ((mc.x - mid.x) * dx + (mc.y - mid.y) * dy < eyeDist * 0.4f) return null
-        return floatArrayOf(le.x, le.y, re.x, re.y, ml.x, ml.y, mr.x, mr.y, mb.x, mb.y)
-    }
-
-    /** Average colour (0–255) of the cheeks-and-nose area between the eyes and the mouth;
-     * [p] are [pointsOf] in [bmp]'s pixels. */
-    private fun skinOf(bmp: Bitmap, p: FloatArray): FloatArray {
-        val eyeY = (p[1] + p[3]) / 2f
-        val mouthY = (p[5] + p[7]) / 2f
-        val x0 = min(p[0], p[2])
-        val x1 = max(p[0], p[2])
-        val top = eyeY + (mouthY - eyeY) * 0.25f
-        var r = 0L; var g = 0L; var b = 0L; var n = 0
-        for (j in 0 until 8) for (i in 0 until 8) {
-            val x = (x0 + (x1 - x0) * (i + 0.5f) / 8f).toInt()
-            val y = (top + (mouthY - top) * (j + 0.5f) / 8f).toInt()
-            if (x !in 0 until bmp.width || y !in 0 until bmp.height) continue
-            val c = bmp.getPixel(x, y)
-            r += Color.red(c); g += Color.green(c); b += Color.blue(c); n++
-        }
-        if (n == 0) return floatArrayOf(160f, 120f, 100f)
-        return floatArrayOf(r / n.toFloat(), g / n.toFloat(), b / n.toFloat())
-    }
-
-    /** Milliseconds between scanned frames: denser for short clips, so quick moves are followed. */
+    /** Milliseconds between scanned frames: denser for short clips, so lips and blinks are caught. */
     private fun stepFor(durMs: Long): Long = when {
+        durMs <= 10_000L -> 83L
         durMs <= 20_000L -> 125L
         durMs <= 40_000L -> 200L
         else -> 250L
     }
 
     /**
-     * Finds the (largest) face throughout [uri] — the first [SWAP_MAX_MS] of it. Heavy: decodes a
+     * Maps the face through [uri] — the first [SWAP_MAX_MS] of it. Heavy: decodes and meshes a
      * frame every [stepFor] ms. [onProgress] 0–1.
      */
     suspend fun track(context: Context, uri: Uri, onProgress: (Float) -> Unit): FaceTrack = withContext(Dispatchers.Default) {
@@ -253,33 +221,46 @@ object FaceSwap {
         val times = LongArray(count) { it * step }
         val points = arrayOfNulls<FloatArray>(count)
         val skins = arrayOfNulls<FloatArray>(count)
-        val detector = FaceDetection.getClient(
-            FaceDetectorOptions.Builder()
-                .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_FAST)
-                .setLandmarkMode(FaceDetectorOptions.LANDMARK_MODE_ALL)
-                .setMinFaceSize(0.06f)
-                .enableTracking()
-                .build(),
-        )
+        val detector = detector()
         val mmr = MediaMetadataRetriever()
         try {
             mmr.setDataSource(context, uri)
-            var followId: Int? = null
+            var lastCenter: Pair<Float, Float>? = null
             for (i in 0 until count) {
                 coroutineContext.ensureActive()
                 val frame = VideoToWebp.frameAt(mmr, times[i] * 1000L, SCAN_SIDE)
                 if (frame != null) {
-                    val faces = runCatching { detector.process(InputImage.fromBitmap(frame, 0)).await() }.getOrDefault(emptyList())
-                    // Stay on the same person once one is picked; otherwise the biggest face.
-                    val face = faces.firstOrNull { followId != null && it.trackingId == followId }
-                        ?: faces.maxByOrNull { it.boundingBox.width() * it.boundingBox.height() }
-                    val px = face?.let { pointsOf(it) }
-                    if (face != null && px != null) {
-                        face.trackingId?.let { followId = it }
+                    val meshes = runCatching { detector.process(InputImage.fromBitmap(frame, 0)).await() }.getOrDefault(emptyList())
+                    // Stay on the same person: the face nearest where it last was, else the biggest.
+                    val mesh = lastCenter?.let { (lx, ly) ->
+                        meshes.minByOrNull { m ->
+                            val dx = m.boundingBox.exactCenterX() - lx; val dy = m.boundingBox.exactCenterY() - ly
+                            dx * dx + dy * dy
+                        }
+                    } ?: meshes.maxByOrNull { it.boundingBox.width() * it.boundingBox.height() }
+                    if (mesh != null && mesh.allPoints.size >= MESH_POINTS) {
+                        lastCenter = mesh.boundingBox.exactCenterX() to mesh.boundingBox.exactCenterY()
                         val w = frame.width.toFloat()
                         val h = frame.height.toFloat()
-                        points[i] = FloatArray(10) { k -> px[k] / (if (k % 2 == 0) w else h) }
-                        skins[i] = skinOf(frame, px)
+                        val p = FloatArray(MESH_POINTS * 3)
+                        val xy = FloatArray(MESH_POINTS * 2)
+                        mesh.allPoints.forEach { pt ->
+                            val k = pt.index
+                            if (k in 0 until MESH_POINTS) {
+                                p[k * 3] = pt.position.x / w; p[k * 3 + 1] = pt.position.y / h; p[k * 3 + 2] = pt.position.z / w
+                                xy[k * 2] = pt.position.x; xy[k * 2 + 1] = pt.position.y
+                            }
+                        }
+                        val box = mesh.boundingBox
+                        val radius = box.width() * LIGHT_RADIUS
+                        val region = Rect(
+                            (box.left - radius).toInt().coerceIn(0, frame.width - 1), (box.top - radius).toInt().coerceIn(0, frame.height - 1),
+                            (box.right + radius).roundToInt().coerceIn(1, frame.width), (box.bottom + radius).roundToInt().coerceIn(1, frame.height),
+                        )
+                        if (region.width() > 2 && region.height() > 2) {
+                            points[i] = p
+                            skins[i] = BlurSampler(frame, region).meansAt(xy, radius)
+                        }
                     }
                     frame.recycle()
                 }
@@ -293,14 +274,14 @@ object FaceSwap {
         FaceTrack(times, points, skins)
     }
 
-    /** Fills one-frame gaps and takes the jitter out of the detections. */
+    /** Fills one-sample gaps and takes the jitter out, lightly — so lips and blinks still move. */
     private fun smooth(points: Array<FloatArray?>, skins: Array<FloatArray?>) {
         val n = points.size
         for (i in 1 until n - 1) {
             val a = points[i - 1]; val b = points[i + 1]
             if (points[i] == null && a != null && b != null) {
                 points[i] = FloatArray(a.size) { (a[it] + b[it]) / 2f }
-                skins[i] = FloatArray(3) { (skins[i - 1]!![it] + skins[i + 1]!![it]) / 2f }
+                skins[i] = FloatArray(skins[i - 1]!!.size) { (skins[i - 1]!![it] + skins[i + 1]!![it]) / 2f }
             }
         }
         val p = points.map { it?.copyOf() }
@@ -308,77 +289,128 @@ object FaceSwap {
             val cur = p[i] ?: continue
             val a = p.getOrNull(i - 1)
             val b = p.getOrNull(i + 1)
-            if (a != null && b != null) points[i] = FloatArray(cur.size) { 0.25f * a[it] + 0.5f * cur[it] + 0.25f * b[it] }
+            if (a != null && b != null) points[i] = FloatArray(cur.size) { 0.2f * a[it] + 0.6f * cur[it] + 0.2f * b[it] }
         }
-        // Colour changes slowly in real life; a wide average keeps the tone from flickering.
+        // Light changes slowly in real life; a wide average keeps the face from flickering.
         val s = skins.map { it?.copyOf() }
         for (i in 0 until n) {
             if (s[i] == null) continue
             val near = (i - 3..i + 3).mapNotNull { s.getOrNull(it) }
-            skins[i] = FloatArray(3) { k -> near.sumOf { it[k].toDouble() }.toFloat() / near.size }
+            skins[i] = FloatArray(s[i]!!.size) { k -> near.sumOf { it[k].toDouble() }.toFloat() / near.size }
         }
     }
 }
 
+/** Box-blurred colour anywhere inside [region] of a bitmap, from summed-area tables. */
+private class BlurSampler(bmp: Bitmap, private val region: Rect) {
+    private val w = region.width()
+    private val h = region.height()
+    private val sr = IntArray((w + 1) * (h + 1))
+    private val sg = IntArray((w + 1) * (h + 1))
+    private val sb = IntArray((w + 1) * (h + 1))
+
+    init {
+        val px = IntArray(w * h)
+        bmp.getPixels(px, 0, w, region.left, region.top, w, h)
+        for (y in 0 until h) {
+            var r = 0; var g = 0; var b = 0
+            for (x in 0 until w) {
+                val c = px[y * w + x]
+                r += (c shr 16) and 0xFF; g += (c shr 8) and 0xFF; b += c and 0xFF
+                val at = (y + 1) * (w + 1) + x + 1
+                val above = y * (w + 1) + x + 1
+                sr[at] = sr[above] + r; sg[at] = sg[above] + g; sb[at] = sb[above] + b
+            }
+        }
+    }
+
+    /** The mean colour (r,g,b 0–255) within [radius] of each x,y pair in [xy] (bitmap pixels). */
+    fun meansAt(xy: FloatArray, radius: Float): FloatArray {
+        val out = FloatArray(xy.size / 2 * 3)
+        val r = radius.coerceAtLeast(1f)
+        for (i in 0 until xy.size / 2) {
+            val x0 = (xy[i * 2] - r - region.left).toInt().coerceIn(0, w)
+            val x1 = (xy[i * 2] + r - region.left).toInt().plus(1).coerceIn(0, w)
+            val y0 = (xy[i * 2 + 1] - r - region.top).toInt().coerceIn(0, h)
+            val y1 = (xy[i * 2 + 1] + r - region.top).toInt().plus(1).coerceIn(0, h)
+            val area = (x1 - x0) * (y1 - y0)
+            if (area <= 0) { out[i * 3] = 128f; out[i * 3 + 1] = 128f; out[i * 3 + 2] = 128f; continue }
+            fun sum(s: IntArray) = s[y1 * (w + 1) + x1] - s[y0 * (w + 1) + x1] - s[y1 * (w + 1) + x0] + s[y0 * (w + 1) + x0]
+            out[i * 3] = sum(sr) / area.toFloat()
+            out[i * 3 + 1] = sum(sg) / area.toFloat()
+            out[i * 3 + 2] = sum(sb) / area.toFloat()
+        }
+        return out
+    }
+}
+
 /**
- * Draws the photo's face onto a video face. One per user (the preview, the export) — it keeps
- * its scratch objects between frames, so it isn't thread-safe.
+ * Draws the photo's face onto a video face, triangle by triangle. One per user (the preview, the
+ * export) — it keeps its scratch arrays between frames, so it isn't thread-safe.
  */
 class FaceSwapPainter(private val source: SourceFace) {
-    private val matrix = Matrix()
-    private val dst = FloatArray(6)
-    private val colors = ColorMatrix()
-    private val facePaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
-    private val holePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { xfermode = PorterDuffXfermode(PorterDuff.Mode.DST_OUT) }
+    private val verts = FloatArray(MESH_POINTS * 2)
+    // Sized like verts, not one per point: older Androids check the colour array that way.
+    private val colors = IntArray(MESH_POINTS * 2)
+    private val gains = FloatArray(MESH_POINTS * 3)
+    private val depth = FloatArray(source.triangles.size / 3)
+    private val sorted = ShortArray(source.triangles.size)
+    private val colorMatrix = ColorMatrix()
+    private val paint = Paint(Paint.FILTER_BITMAP_FLAG).apply {
+        shader = BitmapShader(source.patch, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP)
+    }
 
     /** Draws [pose] onto [canvas], which shows the whole [w]×[h] video frame. */
     fun draw(canvas: Canvas, w: Float, h: Float, pose: FacePose, options: SwapOptions) {
         val p = pose.points
-        val lx = p[0] * w; val ly = p[1] * h
-        val rx = p[2] * w; val ry = p[3] * h
-        val mx = (p[4] + p[6]) / 2f * w; val my = (p[5] + p[7]) / 2f * h
-        val eyeDist = hypot(rx - lx, ry - ly)
-        if (eyeDist < 3f) return
-        // A face turned almost side-on squeezes the eyes together; swapping it would just smear.
-        val eyeToMouth = hypot(mx - (lx + rx) / 2f, my - (ly + ry) / 2f)
-        val frontal = eyeDist / eyeToMouth.coerceAtLeast(1f) // about 1 face-on, falls as the head turns
-        val sideFade = ((frontal - 0.35f) / 0.25f).coerceIn(0f, 1f)
-        val alpha = pose.alpha * sideFade
-        if (alpha <= 0.01f) return
-
-        val cx = (lx + rx + mx) / 3f
-        val cy = (ly + ry + my) / 3f
-        val s = options.size
-        dst[0] = cx + (lx - cx) * s; dst[1] = cy + (ly - cy) * s
-        dst[2] = cx + (rx - cx) * s; dst[3] = cy + (ry - cy) * s
-        dst[4] = cx + (mx - cx) * s; dst[5] = cy + (my - cy) * s
-        if (!matrix.setPolyToPoly(source.anchors, 0, dst, 0, 3)) return
-
-        val k = options.skinMatch
-        fun gain(i: Int) = 1f + (((pose.skin[i] + 8f) / (source.skin[i] + 8f)).coerceIn(0.5f, 1.9f) - 1f) * k
-        colors.setScale(gain(0), gain(1), gain(2), 1f)
-        facePaint.colorFilter = ColorMatrixColorFilter(colors)
-        facePaint.alpha = (alpha * 255).roundToInt()
-        canvas.drawBitmap(source.patch, matrix, facePaint)
-
-        if (options.talkingMouth) {
-            val mlx = p[4] * w; val mly = p[5] * h
-            val mrx = p[6] * w; val mry = p[7] * h
-            val bx = p[8] * w; val by = p[9] * h
-            val mouthW = hypot(mrx - mlx, mry - mly).coerceAtLeast(eyeDist * 0.5f)
-            val open = hypot(bx - mx, by - my)
-            val radiusX = mouthW * 0.75f
-            val radiusY = max(mouthW * 0.34f, open * 1.3f)
-            holePaint.shader = RadialGradient(
-                0f, 0f, radiusX,
-                intArrayOf(Color.BLACK, Color.BLACK, Color.TRANSPARENT), floatArrayOf(0f, 0.55f, 1f), Shader.TileMode.CLAMP,
-            )
-            canvas.save()
-            canvas.translate(mx + (bx - mx) * 0.4f, my + (by - my) * 0.4f)
-            canvas.rotate(Math.toDegrees(atan2((mry - mly).toDouble(), (mrx - mlx).toDouble())).toFloat())
-            canvas.scale(1f, radiusY / radiusX)
-            canvas.drawCircle(0f, 0f, radiusX, holePaint)
-            canvas.restore()
+        for (i in 0 until MESH_POINTS) {
+            verts[i * 2] = p[i * 3] * w
+            verts[i * 2 + 1] = p[i * 3 + 1] * h
         }
+
+        // Relighting: each point's colour is scaled by video light ÷ photo light there. Vertex
+        // colours can only darken (they multiply the photo), so they carry each point's share of
+        // the strongest gain and the colour filter supplies that strongest gain once, for all.
+        val k = options.skinMatch
+        var maxR = 0f; var maxG = 0f; var maxB = 0f
+        for (i in 0 until MESH_POINTS * 3) {
+            val ratio = ((pose.skin[i] + 6f) / (source.skin[i] + 6f)).coerceIn(0.35f, 2.6f)
+            val g = 1f + (ratio - 1f) * k
+            gains[i] = g
+            when (i % 3) { 0 -> maxR = max(maxR, g); 1 -> maxG = max(maxG, g); else -> maxB = max(maxB, g) }
+        }
+        for (i in 0 until MESH_POINTS) {
+            colors[i] = Color.argb(
+                255,
+                (gains[i * 3] / maxR * 255f).roundToInt().coerceIn(0, 255),
+                (gains[i * 3 + 1] / maxG * 255f).roundToInt().coerceIn(0, 255),
+                (gains[i * 3 + 2] / maxB * 255f).roundToInt().coerceIn(0, 255),
+            )
+        }
+        colorMatrix.setScale(maxR, maxG, maxB, 1f)
+        paint.colorFilter = ColorMatrixColorFilter(colorMatrix)
+        paint.alpha = (pose.alpha * 255).roundToInt().coerceIn(0, 255)
+
+        // Far triangles first, so on a turned head the near cheek covers the far one, not the
+        // other way round. Which way is "near" is read off the nose tip, which always sticks out.
+        val tris = if (options.realEyes) source.trianglesNoEyes else source.triangles
+        val count = tris.size / 3
+        var meanZ = 0f
+        for (i in 0 until MESH_POINTS) meanZ += p[i * 3 + 2]
+        meanZ /= MESH_POINTS
+        val nearIsSmaller = p[NOSE_TIP * 3 + 2] < meanZ
+        for (t in 0 until count) {
+            val z = p[tris[t * 3] * 3 + 2] + p[tris[t * 3 + 1] * 3 + 2] + p[tris[t * 3 + 2] * 3 + 2]
+            depth[t] = if (nearIsSmaller) -z else z
+        }
+        val order = (0 until count).sortedBy { depth[it] }
+        order.forEachIndexed { j, t ->
+            sorted[j * 3] = tris[t * 3]; sorted[j * 3 + 1] = tris[t * 3 + 1]; sorted[j * 3 + 2] = tris[t * 3 + 2]
+        }
+
+        canvas.drawVertices(
+            Canvas.VertexMode.TRIANGLES, MESH_POINTS * 2, verts, 0, source.tex, 0, colors, 0,
+            sorted, 0, count * 3, paint,
+        )
     }
 }

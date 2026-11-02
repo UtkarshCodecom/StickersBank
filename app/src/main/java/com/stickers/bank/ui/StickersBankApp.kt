@@ -188,7 +188,6 @@ private fun NavGraphBuilder.appGraph(nav: NavHostController) {
     composable(Routes.TRENDING_ALL) { com.stickers.bank.ui.featured.TrendingAllScreen(nav) }
     composable(Routes.PACKS) { com.stickers.bank.ui.packs.PacksScreen(nav) }
     composable(Routes.STUDIO) { com.stickers.bank.ui.studio.StudioScreen(nav) }
-    composable(Routes.STUDIO_FACE) { com.stickers.bank.ui.studio.FaceAnimatorScreen(nav) }
     composable(Routes.STUDIO_SUBTITLES) { com.stickers.bank.ui.studio.SubtitleStudioScreen(nav) }
     composable(Routes.STUDIO_SWAP) { com.stickers.bank.ui.studio.FaceSwapScreen(nav) }
     composable(Routes.PACK) { entry ->
@@ -251,7 +250,6 @@ private fun analyticsScreenName(route: String?): String? = when (route) {
     Routes.MY_STICKERS -> "myStickers"
     Routes.PACKS -> "packs"
     Routes.STUDIO -> "studio"
-    Routes.STUDIO_FACE -> "faceAnimator"
     Routes.STUDIO_SUBTITLES -> "autoSubtitles"
     Routes.STUDIO_SWAP -> "faceSwap"
     Routes.PACK -> "pack"

@@ -15,7 +15,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material.icons.rounded.ClosedCaption
-import androidx.compose.material.icons.rounded.Face
 import androidx.compose.material.icons.rounded.SwitchAccount
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -55,13 +54,8 @@ fun StudioScreen(nav: NavHostController) {
             StudioCard(
                 icon = Icons.Rounded.SwitchAccount,
                 title = "Face Swap",
-                body = "Pick a face photo and a video — the face in the video becomes the one in your photo, following the head as it moves. Save the video or make an animated sticker.",
+                body = "Pick a face photo and a video — the video's face morphs into yours: it turns, talks and blinks with the video. Save the video or make an animated sticker.",
             ) { nav.navigate(Routes.STUDIO_SWAP) }
-            StudioCard(
-                icon = Icons.Rounded.Face,
-                title = "Face Animator",
-                body = "Pick a photo — the face is cut out and played in a fun animation (bounce, spin, hearts, party…). Save it as an animated sticker for WhatsApp.",
-            ) { nav.navigate(Routes.STUDIO_FACE) }
             StudioCard(
                 icon = Icons.Rounded.ClosedCaption,
                 title = "Auto Subtitles",
