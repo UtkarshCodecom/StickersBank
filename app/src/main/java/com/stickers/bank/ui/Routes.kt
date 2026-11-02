@@ -50,6 +50,7 @@ object Routes {
     const val STUDIO = "studio"
     const val STUDIO_FACE = "studio/face"
     const val STUDIO_SUBTITLES = "studio/subtitles"
+    const val STUDIO_SWAP = "studio/swap"
 
     // Every Trending card at once (opened from the "See all" button on Featured).
     const val TRENDING_ALL = "trending_all"

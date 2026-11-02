@@ -97,8 +97,14 @@ object VideoCaptionExporter {
                 .setIsLooping(true) // a short song repeats to the end of the video
                 .build()
         }
-        val composition = Composition.Builder(sequences).build()
+        run(context, Composition.Builder(sequences).build(), outFile, onProgress)
+    }
 
+    /**
+     * Runs [composition] through Transformer (H.264 + AAC) into [outFile], reporting 0–1 to
+     * [onProgress]. Main thread — Transformer lives on the thread that builds it. Throws on failure.
+     */
+    internal suspend fun run(context: Context, composition: Composition, outFile: File, onProgress: (Float) -> Unit) = withContext(Dispatchers.Main) {
         val done = CompletableDeferred<Unit>()
         val transformer = Transformer.Builder(context)
             .setVideoMimeType(MimeTypes.VIDEO_H264)

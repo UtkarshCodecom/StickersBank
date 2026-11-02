@@ -190,6 +190,7 @@ private fun NavGraphBuilder.appGraph(nav: NavHostController) {
     composable(Routes.STUDIO) { com.stickers.bank.ui.studio.StudioScreen(nav) }
     composable(Routes.STUDIO_FACE) { com.stickers.bank.ui.studio.FaceAnimatorScreen(nav) }
     composable(Routes.STUDIO_SUBTITLES) { com.stickers.bank.ui.studio.SubtitleStudioScreen(nav) }
+    composable(Routes.STUDIO_SWAP) { com.stickers.bank.ui.studio.FaceSwapScreen(nav) }
     composable(Routes.PACK) { entry ->
         com.stickers.bank.ui.packs.PackDetailScreen(nav, entry.arguments?.getString("id").orEmpty())
     }
@@ -252,6 +253,7 @@ private fun analyticsScreenName(route: String?): String? = when (route) {
     Routes.STUDIO -> "studio"
     Routes.STUDIO_FACE -> "faceAnimator"
     Routes.STUDIO_SUBTITLES -> "autoSubtitles"
+    Routes.STUDIO_SWAP -> "faceSwap"
     Routes.PACK -> "pack"
     else -> null
 }

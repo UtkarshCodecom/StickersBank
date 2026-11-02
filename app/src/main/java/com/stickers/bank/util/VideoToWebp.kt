@@ -294,7 +294,7 @@ object VideoToWebp {
      * timestamps. Falling back to the nearest keyframe gives a slightly-off frame instead of no
      * frame at all, which is the difference between a working timeline and an empty one.
      */
-    private fun frameAt(mmr: MediaMetadataRetriever, timeUs: Long, maxSide: Int? = null): Bitmap? {
+    internal fun frameAt(mmr: MediaMetadataRetriever, timeUs: Long, maxSide: Int? = null): Bitmap? {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
             // Decoding straight at sticker size skips building (then shrinking) a full 1080p/4K
             // bitmap per frame — several times faster, and far less memory.

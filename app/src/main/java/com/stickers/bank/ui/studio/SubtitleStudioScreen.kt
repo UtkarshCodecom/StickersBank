@@ -423,7 +423,7 @@ fun SubtitleStudioScreen(nav: NavHostController) {
 }
 
 @Composable
-private fun Label(text: String) {
+internal fun Label(text: String) {
     Text(
         text, color = Gold, fontSize = 11.sp, letterSpacing = 1.5.sp, fontWeight = FontWeight.Bold,
         modifier = Modifier.padding(top = 18.dp, bottom = 2.dp),
@@ -431,7 +431,7 @@ private fun Label(text: String) {
 }
 
 @Composable
-private fun <T> ChipRow(options: List<T>, selected: T, label: (T) -> String, onPick: (T) -> Unit) {
+internal fun <T> ChipRow(options: List<T>, selected: T, label: (T) -> String, onPick: (T) -> Unit) {
     Row(
         Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(top = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -449,7 +449,7 @@ private fun <T> ChipRow(options: List<T>, selected: T, label: (T) -> String, onP
 }
 
 @Composable
-private fun SmallButton(text: String, modifier: Modifier, onClick: () -> Unit) {
+internal fun SmallButton(text: String, modifier: Modifier, onClick: () -> Unit) {
     Box(
         modifier.height(44.dp).neuRaised(cornerRadius = 22.dp, elevation = 5.dp).clip(RoundedCornerShape(50)).clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
@@ -462,7 +462,7 @@ private fun formatTime(ms: Long): String {
 }
 
 /** (display aspect ratio, has sound) of a video. */
-private fun readVideo(context: android.content.Context, uri: Uri): Pair<Float, Boolean> {
+internal fun readVideo(context: android.content.Context, uri: Uri): Pair<Float, Boolean> {
     val mmr = MediaMetadataRetriever()
     val aspect = try {
         mmr.setDataSource(context, uri)

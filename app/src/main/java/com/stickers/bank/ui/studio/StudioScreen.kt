@@ -16,6 +16,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material.icons.rounded.ClosedCaption
 import androidx.compose.material.icons.rounded.Face
+import androidx.compose.material.icons.rounded.SwitchAccount
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -37,7 +38,7 @@ import com.stickers.bank.ui.theme.neuRaised
 
 /**
  * STUDIO — its own corner of the app (opened from Settings), so nothing here touches the editor
- * or anything else. Both tools run entirely on the phone: free, offline once set up, nothing
+ * or anything else. Every tool runs entirely on the phone: free, offline once set up, nothing
  * uploaded.
  */
 @Composable
@@ -51,6 +52,11 @@ fun StudioScreen(nav: NavHostController) {
                 "Free tools that run on your phone — nothing is uploaded.",
                 color = AppOnSurfaceMuted, fontSize = 13.sp, modifier = Modifier.padding(bottom = 14.dp),
             )
+            StudioCard(
+                icon = Icons.Rounded.SwitchAccount,
+                title = "Face Swap",
+                body = "Pick a face photo and a video — the face in the video becomes the one in your photo, following the head as it moves. Save the video or make an animated sticker.",
+            ) { nav.navigate(Routes.STUDIO_SWAP) }
             StudioCard(
                 icon = Icons.Rounded.Face,
                 title = "Face Animator",

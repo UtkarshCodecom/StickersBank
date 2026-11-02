@@ -107,7 +107,7 @@ fun SettingsScreen(nav: NavHostController) {
             LibraryRow(
                 icon = Icons.Rounded.AutoAwesome,
                 title = "Studio",
-                subtitle = "Face animator & auto subtitles · free, on your phone",
+                subtitle = "Face swap, face animator & auto subtitles · free, on your phone",
             ) { nav.navigate(Routes.STUDIO) }
 
             SectionLabel("FAQ")
