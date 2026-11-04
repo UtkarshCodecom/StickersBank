@@ -8,10 +8,10 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -22,10 +22,8 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.Send
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
-import androidx.compose.material.icons.rounded.Movie
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -141,7 +139,7 @@ fun PacksScreen(nav: NavHostController) {
                 )
                 else -> LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 32.dp),
+                    contentPadding = PaddingValues(start = 10.dp, end = 10.dp, top = 8.dp, bottom = 32.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     items(list, key = { it.first.id }) { (pack, stickers) ->
@@ -162,9 +160,10 @@ fun PacksScreen(nav: NavHostController) {
 }
 
 /**
- * A pack card, in the Bank card style: its thumbnail on the left with the name, "Stickers Bank"
- * and the count beside it (and a heart to favourite it), four stickers as a preview, and an
- * "Add to WhatsApp" button for the whole pack.
+ * A pack card: the thumbnail on the left; beside it the name and "Stickers Bank" with a small Add
+ * button (to WhatsApp), and under those — starting at the name's edge — four stickers as a preview
+ * with the favourite heart after them. The sizes are shares of the card's width, so the
+ * proportions hold on every phone.
  */
 @Composable
 internal fun PackCard(
@@ -175,44 +174,37 @@ internal fun PackCard(
     onWhatsApp: () -> Unit,
     onOpen: () -> Unit,
 ) {
-    Column(
+    // The first sticker is the thumbnail, so the preview shows others when the pack has enough.
+    val preview = if (stickers.size > 4) stickers.drop(1).take(4) else stickers
+    Row(
         Modifier
             .fillMaxWidth()
             .neuRaised(cornerRadius = 16.dp, elevation = 7.dp)
             .clip(RoundedCornerShape(16.dp))
             .clickable(onClick = onOpen)
-            .padding(14.dp),
+            .padding(horizontal = 10.dp, vertical = 12.dp),
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            StickerWell(stickers.firstOrNull(), Modifier.size(62.dp), padding = 7.dp)
-            Column(Modifier.weight(1f).padding(start = 12.dp)) {
-                Text(pack.name, color = AppOnSurface, fontWeight = FontWeight.Bold, fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(PACK_PUBLISHER, color = AppOnSurfaceMuted, fontSize = 12.sp)
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 2.dp)) {
-                    if (pack.animated) Icon(Icons.Rounded.Movie, "Animated", tint = Gold, modifier = Modifier.padding(end = 4.dp).size(14.dp))
-                    Text(
-                        "${stickers.size} ${if (pack.animated) "animations" else "stickers"}",
-                        color = Gold, fontWeight = FontWeight.Bold, fontSize = 12.sp,
-                    )
+        StickerWell(stickers.firstOrNull(), Modifier.weight(98f).aspectRatio(1f))
+        Spacer(Modifier.width(11.dp))
+        Column(Modifier.weight(545f)) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f).padding(end = 8.dp)) {
+                    Text(pack.name, color = AppOnSurface, fontWeight = FontWeight.Bold, fontSize = 15.sp, lineHeight = 18.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(PACK_PUBLISHER, color = AppOnSurfaceMuted, fontSize = 12.sp, lineHeight = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
+                Box(
+                    Modifier.size(width = 52.dp, height = 30.dp).clip(RoundedCornerShape(50)).background(Gold)
+                        .clickable(onClickLabel = "Add to WhatsApp", onClick = onWhatsApp),
+                    contentAlignment = Alignment.Center,
+                ) { Text("Add", color = OnGold, fontWeight = FontWeight.Bold, fontSize = 14.sp) }
             }
-            FavoriteHeart(favorite, onToggleFavorite)
-        }
-        Row(
-            Modifier.fillMaxWidth().padding(top = 12.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            stickers.take(4).forEach { s -> StickerWell(s, Modifier.weight(1f).aspectRatio(1f)) }
-            repeat(4 - stickers.take(4).size) { Box(Modifier.weight(1f)) }
-        }
-        Row(
-            Modifier.padding(top = 12.dp).fillMaxWidth().height(44.dp)
-                .clip(RoundedCornerShape(50)).background(Gold).clickable(onClick = onWhatsApp),
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(Icons.AutoMirrored.Rounded.Send, null, tint = OnGold, modifier = Modifier.size(16.dp))
-            Text("Add to WhatsApp", color = OnGold, fontWeight = FontWeight.Bold, fontSize = 14.sp, modifier = Modifier.padding(start = 8.dp))
+            Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Row(Modifier.weight(460f), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    preview.forEach { s -> StickerWell(s, Modifier.weight(1f).aspectRatio(1f)) }
+                    repeat(4 - preview.size) { Box(Modifier.weight(1f)) }
+                }
+                Box(Modifier.weight(85f), contentAlignment = Alignment.CenterEnd) { FavoriteHeart(favorite, onToggleFavorite) }
+            }
         }
     }
 }
@@ -243,13 +235,13 @@ internal fun PackMiniCard(pack: Pack, stickers: List<Sticker>, width: Dp, onOpen
 
 /** One sticker in an inset well (or an empty well). */
 @Composable
-private fun StickerWell(sticker: Sticker?, modifier: Modifier, padding: Dp = 8.dp) {
-    Box(modifier.neuInset(cornerRadius = 10.dp, elevation = 4.dp), contentAlignment = Alignment.Center) {
+private fun StickerWell(sticker: Sticker?, modifier: Modifier, padding: Dp = 4.dp) {
+    Box(modifier.neuInset(cornerRadius = 10.dp, elevation = 3.dp), contentAlignment = Alignment.Center) {
         if (sticker != null) {
             AsyncImage(
                 model = rememberStickerModel(sticker),
                 contentDescription = null,
-                modifier = Modifier.fillMaxSize().padding(padding), // clear of the well's inner shadow
+                modifier = Modifier.fillMaxSize().padding(padding),
             )
         }
     }
